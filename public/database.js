@@ -204,6 +204,7 @@ async function handleImageError(imgEl, gameId) {
 
 async function exportData() {
     const [games, plays] = await Promise.all([getGames(), getPlays()]);
+	plays.sort((a,b) => a.gameId.localeCompare(b.gameId));
     return JSON.stringify(
         { games, plays, exportedAt: new Date().toISOString() },
         null,
