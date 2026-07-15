@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Settings — Board Game Tracker</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+
+    <meta name="theme-color" content="#222222">
+</head>
+
+<body>
+
+<div id="app-nav"></div>
+
+<main>
+
+    <h1>Settings</h1>
+
+    <section class="settings-section">
+        <h2>Server</h2>
+        <p class="modal-hint">
+            Point this at your Raspberry Pi's Board Game Tracker server, e.g.
+            <code>http://raspberrypi.local:3131</code>.
+        </p>
+        <div class="modal-row">
+            <input type="text" id="server-url" placeholder="http://raspberrypi.local:3131">
+            <button onclick="handleSaveServer()">Connect</button>
+        </div>
+        <p id="server-status" class="modal-hint"></p>
+    </section>
+
+    <section class="settings-section">
+        <h2>Profile</h2>
+        <p id="current-profile" class="modal-hint"></p>
+
+        <div id="profile-list"></div>
+
+        <h3>Create a new profile</h3>
+        <div class="modal-row">
+            <input type="text" id="new-profile-name" placeholder="e.g. Alex">
+            <button onclick="handleCreateProfile()">Create</button>
+        </div>
+    </section>
+
+</main>
+
+<script src="database.js"></script>
+<script src="profile.js"></script>
+<script src="nav.js"></script>
+<script src="sync.js"></script>
+<script src="settings.js"></script>
+
+</body>
+
+</html>

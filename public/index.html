@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Board Game Tracker</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+
+    <meta name="theme-color" content="#222222">
+</head>
+
+<body>
+
+<div id="app-nav"></div>
+
+<header>
+    <h1>Board Game Tracker</h1>
+</header>
+
+<main>
+
+    <section class="add-game">
+        <input id="gameName" placeholder="Enter game name">
+        <button onclick="createGame()">Add Game</button>
+    </section>
+
+    <section class="filters">
+        <input type="text" id="searchInput" placeholder="Search by name or tag…" oninput="handleSearchInput()">
+        <label class="checkbox-row inline">
+            <input type="checkbox" id="showArchivedToggle" onchange="handleArchivedToggle()">
+            Show archived
+        </label>
+    </section>
+
+    <section id="games"></section>
+
+    <section class="toolbar">
+        <button onclick="handleExport()">Export Data</button>
+        <label class="import-btn">
+            Import Data
+            <input type="file" accept="application/json" onchange="handleImportFile(this)">
+        </label>
+    </section>
+
+</main>
+
+<script src="database.js"></script>
+<script src="profile.js"></script>
+<script src="nav.js"></script>
+<script src="sync.js"></script>
+<script src="image-picker.js"></script>
+<script src="date-picker.js"></script>
+<script src="game-editor.js"></script>
+<script src="app.js"></script>
+
+</body>
+
+</html>

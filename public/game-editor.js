@@ -1,0 +1,123 @@
+// Modal form for editing a game's details, including the image. Resolves with the
+// updated game object (not yet saved to the database — the caller is responsible for
+// calling updateGame() with it), or null if the user cancelled.
+function openGameEditor(game) {
+    return new Promise(resolve => {
+        let currentImage = game.image || "images/default-game.jpg";
+
+        const lengthOptions = [30, 60, 90, 120];
+        const ratingOptions = ["S", "A", "B", "C", "D", "UP"];
+
+        const overlay = document.createElement("div");
+        overlay.className = "modal-overlay";
+        overlay.innerHTML = `
+            <div class="modal">
+                <h2>Edit Game</h2>
+
+                <img id="editor-image-preview" class="modal-preview"
+                     src="${escapeHTML(currentImage)}" onerror="this.src='images/default-game.jpg'">
+                <div class="modal-actions image-actions">
+                    <button id="editor-change-image-btn" class="secondary">Change Image</button>
+                </div>
+
+                <label class="field-label">Name</label>
+                <input type="text" id="editor-name" value="${escapeHTML(game.name || "")}">
+
+                <label class="field-label">Description</label>
+                <textarea id="editor-description" rows="3">${escapeHTML(game.description || "")}</textarea>
+
+                <div class="field-row">
+                    <div>
+                        <label class="field-label">Type</label>
+                        <select id="editor-type">
+                            <option value="">—</option>
+                            <option value="coop" ${game.type === "coop" ? "selected" : ""}>Co-op</option>
+                            <option value="versus" ${game.type === "versus" ? "selected" : ""}>Versus</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label">Length</label>
+                        <select id="editor-length">
+                            <option value="">—</option>
+                            ${lengthOptions
+                                .map(
+                                    m =>
+                                        `<option value="${m}" ${String(game.length) === String(m) ? "selected" : ""}>${m} min</option>`
+                                )
+                                .join("")}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field-row">
+                    <div>
+                        <label class="field-label">Rating</label>
+                        <select id="editor-rating">
+                            <option value="">—</option>
+                            ${ratingOptions
+                                .map(r => `<option value="${r}" ${game.rating === r ? "selected" : ""}>${r}</option>`)
+                                .join("")}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label">Tag</label>
+                        <input type="text" id="editor-tag" value="${escapeHTML(game.tag || "")}" placeholder="e.g. party, heavy">
+                    </div>
+                </div>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" id="editor-archived" ${game.archived ? "checked" : ""}>
+                    Archived (disposed of / thrown out)
+                </label>
+
+                <div class="modal-actions">
+                    <button id="editor-save-btn">Save</button>
+                    <button id="editor-cancel-btn" class="secondary">Cancel</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const close = result => {
+            overlay.remove();
+            resolve(result);
+        };
+
+        overlay.addEventListener("click", e => {
+            if (e.target === overlay) close(null);
+        });
+
+        overlay.querySelector("#editor-cancel-btn").onclick = () => close(null);
+
+        overlay.querySelector("#editor-change-image-btn").onclick = async () => {
+            const nameNow = overlay.querySelector("#editor-name").value.trim() || game.name;
+            const chosen = await openImagePicker(game.id, nameNow, currentImage);
+            if (chosen) {
+                currentImage = chosen;
+                overlay.querySelector("#editor-image-preview").src = chosen;
+            }
+        };
+
+        overlay.querySelector("#editor-save-btn").onclick = () => {
+            const name = overlay.querySelector("#editor-name").value.trim();
+            if (!name) {
+                alert("Name can't be empty.");
+                return;
+            }
+
+            const length = overlay.querySelector("#editor-length").value;
+
+            close({
+                ...game,
+                name,
+                description: overlay.querySelector("#editor-description").value.trim(),
+                type: overlay.querySelector("#editor-type").value || null,
+                length: length ? Number(length) : null,
+                rating: overlay.querySelector("#editor-rating").value || null,
+                tag: overlay.querySelector("#editor-tag").value.trim(),
+                archived: overlay.querySelector("#editor-archived").checked,
+                image: currentImage
+            });
+        };
+    });
+}

@@ -1,0 +1,11 @@
+services:
+  boardgame-tracker:
+    build: .
+    container_name: boardgame-tracker
+    restart: unless-stopped
+    ports:
+      - "3131:3131"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=3131
