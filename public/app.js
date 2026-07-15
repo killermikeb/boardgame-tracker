@@ -86,8 +86,8 @@ function renderGames() {
             </div>
 
             <div class="game-info">
-                <h3>${escapeHTML(game.name)}</h3>
 
+                <h3>${escapeHTML(game.name)}</h3>
                 <div class="card-badges">
                     ${game.rating ? `<span class="badge badge-rating">${escapeHTML(game.rating)}</span>` : ""}
                     ${game.tag ? `<span class="badge badge-tag">${escapeHTML(game.tag)}</span>` : ""}
@@ -98,11 +98,14 @@ function renderGames() {
                 <p>Last month: ${countLastMonth(allPlays, game.id)}</p>
                 <p>This month: ${countThisMonth(allPlays, game.id)}</p>
 
-                <button onclick="recordPlay('${game.id}')">+ Played</button>
-                <button
-                    onclick="toggleFavourite('${game.id}')"
-                    aria-label="${game.favourite ? 'Remove from favourites' : 'Add to favourites'}"
-                >${game.favourite ? "★" : "☆"}</button>
+				<div class="game-buttons">
+					<button
+						onclick="toggleFavourite('${game.id}')"
+						aria-label="${game.favourite ? 'Remove from favourites' : 'Add to favourites'}"
+					>${game.favourite ? "★" : "☆"}</button>
+					<button onclick="recordPlay('${game.id}')">+</button>
+				</div>
+
             </div>
         `;
 
