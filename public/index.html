@@ -29,11 +29,51 @@
     </section>
 
     <section class="filters">
-        <input type="text" id="searchInput" placeholder="Search by name or tag…" oninput="handleSearchInput()">
-        <label class="checkbox-row inline">
-            <input type="checkbox" id="showArchivedToggle" onchange="handleArchivedToggle()">
-            Show archived
-        </label>
+        <input type="text" id="searchInput" placeholder="Search by name or tag…" oninput="renderGames()">
+
+        <select id="filterType" onchange="renderGames()">
+            <option value="">Any type</option>
+            <option value="coop">Co-op</option>
+            <option value="versus">Versus</option>
+        </select>
+
+        <select id="filterLength" onchange="renderGames()">
+            <option value="">Any length</option>
+            <option value="30">30 min</option>
+            <option value="60">60 min</option>
+            <option value="90">90 min</option>
+            <option value="120">120 min</option>
+        </select>
+
+        <select id="filterRating" onchange="renderGames()">
+            <option value="">Any rating</option>
+            <option value="S">S</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+            <option value="UP">UP</option>
+        </select>
+
+        <select id="filterTag" onchange="renderGames()">
+            <option value="">All tags</option>
+        </select>
+
+        <select id="filterArchived" onchange="renderGames()">
+            <option value="active" selected>Active only</option>
+            <option value="archived">Archived only</option>
+            <option value="all">All</option>
+        </select>
+
+        <select id="filterLastPlayed" onchange="renderGames()">
+            <option value="">Any time</option>
+            <option value="last-month">Played last month</option>
+            <option value="last-2-months">Played last 2 months</option>
+            <option value="ever">Played at all</option>
+            <option value="never">Never played</option>
+        </select>
+
+        <button class="secondary" onclick="clearFilters()">Clear filters</button>
     </section>
 
     <section id="games"></section>

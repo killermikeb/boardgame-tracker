@@ -1,4 +1,5 @@
 let gameId;
+let editMode = false;
 
 window.onload = async () => {
     registerServiceWorker();
@@ -30,6 +31,11 @@ function typeLabel(type) {
     return "";
 }
 
+function toggleEditMode() {
+    editMode = !editMode;
+    loadGame();
+}
+
 async function loadGame() {
     const games = await getGames();
     const game = games.find(g => g.id === gameId);
@@ -44,6 +50,10 @@ async function loadGame() {
     }
 
     document.getElementById("game").innerHTML = `
+        <div class="detail-header">
+            <button class="master-edit-btn" onclick="toggleEditMode()">${editMode ? "Done" : "Edit"}</button>
+        </div>
+
         <img
             class="detail-image"
             src="${escapeHTML(game.image || 'images/default-game.jpg')}"
@@ -64,9 +74,12 @@ async function loadGame() {
             ${game.tag ? `<span class="badge badge-tag">${escapeHTML(game.tag)}</span>` : ""}
         </div>
 
-        <button onclick="addPlayForGame()">Add Play</button>
-        <button onclick="openEditor()">Edit</button>
-        <button onclick="removeGame()">Delete Game</button>
+        <div class="detail-actions">
+            <button onclick="addPlayForGame()">Add Play</button>
+            ${editMode ? `<button onclick="openEditor()">Edit</button>` : ""}
+            ${editMode ? `<button onclick="removeGame()">Delete Game</button>` : ""}
+        </div>
+
         <a href="index.html">Back to list</a>
     `;
 
@@ -78,8 +91,14 @@ async function loadGame() {
             play => `
                 <div class="history-item">
                     ${escapeHTML(play.date)}
-                    <button onclick="editPlay('${play.id}')">Edit</button>
-                    <button onclick="deletePlay('${play.id}')">Delete</button>
+                    ${
+                        editMode
+                            ? `<span class="history-actions">
+                                   <button onclick="editPlay('${play.id}')">Edit</button>
+                                   <button onclick="deletePlay('${play.id}')">Delete</button>
+                               </span>`
+                            : ""
+                    }
                 </div>
             `
         )

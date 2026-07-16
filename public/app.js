@@ -1,11 +1,9 @@
 let gamesContainer;
 
-// Cached in memory so search/filter/sort can re-render instantly without re-hitting
-// IndexedDB on every keystroke. Refreshed via loadGames() after any mutation.
+// Cached in memory so filtering can re-render instantly without re-hitting IndexedDB
+// on every keystroke/change. Refreshed via loadGames() after any mutation.
 let allGames = [];
 let allPlays = [];
-let searchQuery = "";
-let showArchived = false;
 
 window.onload = async () => {
     gamesContainer = document.getElementById("games");
@@ -31,26 +29,81 @@ function registerServiceWorker() {
 async function loadGames() {
     allGames = await getGames();
     allPlays = await getPlays();
+    populateTagFilterOptions();
     renderGames();
 }
 
-function handleSearchInput() {
-    searchQuery = document.getElementById("searchInput").value;
-    renderGames();
+// The tag filter's options depend on what tags actually exist in the collection,
+// so it's rebuilt whenever the underlying games change (not on every filter tweak).
+function populateTagFilterOptions() {
+    const select = document.getElementById("filterTag");
+    const previousValue = select.value;
+
+    const tags = Array.from(new Set(allGames.map(g => (g.tag || "").trim()).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+
+    select.innerHTML =
+        `<option value="">All tags</option>` +
+        tags
+            .map(
+                tag =>
+                    `<option value="${escapeHTML(tag)}" ${tag === previousValue ? "selected" : ""}>${escapeHTML(tag)}</option>`
+            )
+            .join("");
 }
 
-function handleArchivedToggle() {
-    showArchived = document.getElementById("showArchivedToggle").checked;
+function clearFilters() {
+    document.getElementById("searchInput").value = "";
+    document.getElementById("filterType").value = "";
+    document.getElementById("filterLength").value = "";
+    document.getElementById("filterRating").value = "";
+    document.getElementById("filterTag").value = "";
+    document.getElementById("filterArchived").value = "active";
+    document.getElementById("filterLastPlayed").value = "";
     renderGames();
 }
 
 function matchesSearch(game, query) {
     if (!query) return true;
-    const q = query.toLowerCase();
     return (
-        (game.name || "").toLowerCase().includes(q) ||
-        (game.tag || "").toLowerCase().includes(q)
+        (game.name || "").toLowerCase().includes(query) ||
+        (game.tag || "").toLowerCase().includes(query)
     );
+}
+
+function matchesArchived(game, mode) {
+    if (mode === "archived") return !!game.archived;
+    if (mode === "all") return true;
+    return !game.archived; // "active" (default)
+}
+
+// Whole calendar months between a game's most recent play and the current month
+// (0 = played this month, 1 = played last month, etc). Null if never played.
+function monthsSinceLastPlay(game, plays) {
+    const gamePlays = plays.filter(p => p.gameId === game.id);
+    if (gamePlays.length === 0) return null;
+
+    const mostRecentDate = gamePlays.reduce((latest, p) => {
+        const d = new Date(p.date);
+        return d > latest ? d : latest;
+    }, new Date(0));
+
+    const now = new Date();
+    const diff = (now.getFullYear() - mostRecentDate.getFullYear()) * 12 + (now.getMonth() - mostRecentDate.getMonth());
+    return Math.max(0, diff);
+}
+
+function matchesLastPlayed(game, mode, plays) {
+    if (!mode) return true;
+
+    const monthsSince = monthsSinceLastPlay(game, plays);
+
+    if (mode === "never") return monthsSince === null;
+    if (mode === "ever") return monthsSince !== null;
+    if (mode === "last-month") return monthsSince !== null && monthsSince <= 1;
+    if (mode === "last-2-months") return monthsSince !== null && monthsSince <= 2;
+    return true;
 }
 
 function byFavouriteThenName(a, b) {
@@ -61,14 +114,28 @@ function byFavouriteThenName(a, b) {
 }
 
 function renderGames() {
+    const search = document.getElementById("searchInput").value.trim().toLowerCase();
+    const typeFilter = document.getElementById("filterType").value;
+    const lengthFilter = document.getElementById("filterLength").value;
+    const ratingFilter = document.getElementById("filterRating").value;
+    const tagFilter = document.getElementById("filterTag").value;
+    const archivedFilter = document.getElementById("filterArchived").value;
+    const lastPlayedFilter = document.getElementById("filterLastPlayed").value;
+
     const visible = allGames
-        .filter(game => (showArchived || !game.archived) && matchesSearch(game, searchQuery))
+        .filter(game => matchesArchived(game, archivedFilter))
+        .filter(game => matchesSearch(game, search))
+        .filter(game => !typeFilter || game.type === typeFilter)
+        .filter(game => !lengthFilter || String(game.length) === lengthFilter)
+        .filter(game => !ratingFilter || game.rating === ratingFilter)
+        .filter(game => !tagFilter || (game.tag || "") === tagFilter)
+        .filter(game => matchesLastPlayed(game, lastPlayedFilter, allPlays))
         .sort(byFavouriteThenName);
 
     gamesContainer.innerHTML = "";
 
     if (visible.length === 0) {
-        gamesContainer.innerHTML = `<p class="empty-state">No games match.</p>`;
+        gamesContainer.innerHTML = `<p class="empty-state">No games match those filters.</p>`;
         return;
     }
 
@@ -201,9 +268,12 @@ async function handleExport() {
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
+    const profile = getActiveProfile();
+    const profileSlug = slugifyProfileName(profile ? profile.name : "local");
+
     const a = document.createElement("a");
     a.href = url;
-    a.download = `boardgame-backup-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `boardgame-backup-${profileSlug}-${new Date().toISOString().split("T")[0]}.json`;
     a.click();
 
     URL.revokeObjectURL(url);

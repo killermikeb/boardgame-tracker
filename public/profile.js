@@ -82,3 +82,13 @@ function roughlyAgo(iso) {
     const days = Math.round(hours / 24);
     return `${days}d ago`;
 }
+
+// Turns a profile name into something safe to use in a downloaded filename.
+function slugifyProfileName(name) {
+    return (
+        (name || "")
+            .trim()
+            .replace(/[\/\\:*?"<>|]/g, "")
+            .replace(/\s+/g, "-") || "profile"
+    );
+}
