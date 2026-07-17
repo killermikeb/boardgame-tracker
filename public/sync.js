@@ -16,6 +16,7 @@ async function syncNow() {
 
     return { games: merged.games.length, plays: merged.plays.length };
 }
+// TODO: sync local deletions to main server
 
 // Full download used when first selecting a profile in Settings.
 async function downloadProfileData(profileId) {
