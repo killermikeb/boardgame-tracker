@@ -4,7 +4,7 @@ body {
 	margin: 0;
 }
 
-header h1, header h2 {
+h1, h2 {
 	text-align: center;
 }
 
@@ -77,7 +77,7 @@ main {
 
 .game-info h3 {
 	margin-top: 0;
-	margin-bottom: 0;
+	margin-bottom: 10px;
 }
 
 .game-info p {
@@ -91,7 +91,9 @@ main {
 
 .game-buttons button {
 	flex: 1;
-	margin: 12px 2px;
+	margin: 4px 8px;
+	padding: 6px 12px;
+	font-size: 1.3rem;
 }
 
 
@@ -105,14 +107,14 @@ main {
 	padding: 10px 12px;
 }
 
-.nav-links a {
+.nav-links a, .nav-status a {
 	color: white;
 	text-decoration: none;
-	margin-right: 12px;
+	margin: 0px 4px;
 	padding: 4px 0px;
 }
 
-.nav-links a.active {
+.nav-links a.active, .nav-status a.active {
 	border-bottom: 2px solid white;
 	font-weight: bold;
 }
@@ -123,13 +125,19 @@ main {
 	gap: 10px;
 }
 
+.gear-icon {
+	height: 1.2em;
+	transform: translate(0%, 20%);
+}
+
 .nav-status button {
+	padding: 8px 10px;
 	background: white;
 }
 
 .sync-status {
 	text-align: right;
-	font-size: 0.8rem;
+	font-size: 0.9rem;
 	color: #555;
 	padding: 4px 20px;
 	background: #eee;
@@ -194,6 +202,12 @@ main {
 	justify-content: space-between;
 }
 
+.flex-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+    align-items: center;
+}
 
 /* ---------- Settings page ---------- */
 .settings-section {
@@ -345,24 +359,76 @@ button.secondary {
 /* ---------- Card / detail badges ---------- */
 .card-badges {
 	display: flex;
-	gap: 6px;
+	gap: 4px;
 	flex-wrap: wrap;
 	margin-bottom: 8px;
 }
 
-.badge {
-	display: inline-block;
-	background: #eee;
-	color: #333;
-	border-radius: 6px;
-	padding: 2px 8px;
-	font-size: 0.75rem;
-	font-weight: bold;
+.detail-badges {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin-bottom: 15px;
 }
 
-.badge-rating {
-	background: #2b6cb0;
-	color: white;
+.badge {
+	opacity: 0.9;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    padding: 4px 10px;
+    margin: 2px;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    user-select: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    background: #9e9e9e;
+}
+
+.badge-type-versus {
+    background: #d9534f;
+}
+
+.badge-type-coop {
+    background: #28a745;
+}
+
+.badge-length-30  { background:#8fd3ff; color:#222; }
+.badge-length-60  { background:#4ea9ff; }
+.badge-length-90  { background:#1d78d6; }
+.badge-length-120 { background:#114c8d; }
+
+
+.badge-rating-S {
+    background:#ffb400;
+    font-weight: 700;
+    color:#222;
+}
+
+.badge-rating-A {
+    background:#4caf50;
+}
+
+.badge-rating-B {
+    background:#4fc3f7;
+    font-weight: 700;
+    color:#222;
+}
+
+.badge-rating-C {
+    background:#ff9800;
+}
+
+.badge-rating-D {
+    background:#e53935;
+}
+
+.badge-rating-UP, .badge-rating-GF, .badge-rating-- {
+    background:#757575;
 }
 
 .badge-tag {
@@ -378,13 +444,6 @@ button.secondary {
 
 .game-card.archived {
 	opacity: 0.6;
-}
-
-.detail-badges {
-	display: flex;
-	gap: 8px;
-	flex-wrap: wrap;
-	margin-bottom: 15px;
 }
 
 .archived-banner {

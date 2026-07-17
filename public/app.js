@@ -26,6 +26,12 @@ function registerServiceWorker() {
     }
 }
 
+function typeLabel(type) {
+    if (type === "coop") return "Co-op";
+    if (type === "versus") return "Versus";
+    return "";
+}
+
 async function loadGames() {
     allGames = await getGames();
     allPlays = await getPlays();
@@ -156,7 +162,9 @@ function renderGames() {
 
                 <h3>${escapeHTML(game.name)}</h3>
                 <div class="card-badges">
-                    ${game.rating ? `<span class="badge badge-rating">${escapeHTML(game.rating)}</span>` : ""}
+					${game.type ? `<span class="badge badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
+					${game.length ? `<span class="badge badge-length-${escapeHTML(game.length)}">${escapeHTML(game.length)} min</span>` : ""}
+                    ${game.rating ? `<span class="badge badge-rating-${escapeHTML(game.rating)}">${escapeHTML(game.rating)}</span>` : ""}
                     ${game.tag ? `<span class="badge badge-tag">${escapeHTML(game.tag)}</span>` : ""}
                     ${game.archived ? `<span class="badge badge-archived">Archived</span>` : ""}
                 </div>

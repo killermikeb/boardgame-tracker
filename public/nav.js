@@ -11,9 +11,9 @@ function renderNav(activePage) {
             <div class="nav-links">
                 <a href="index.html" class="${activePage === "home" ? "active" : ""}">Games</a>
                 <a href="timeline.html" class="${activePage === "timeline" ? "active" : ""}">Timeline</a>
-                <a href="settings.html" class="${activePage === "settings" ? "active" : ""}">Settings</a>
             </div>
             <div class="nav-status">
+                <a href="settings.html" class="${activePage === "settings" ? "active" : ""}"><img class="gear-icon" src="icons/gear.svg" alt="Settings"></a>
                 ${
                     profile
                         ? `<span class="profile-name">👤 ${escapeHTML(profile.name)}</span>

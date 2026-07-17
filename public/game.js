@@ -50,9 +50,6 @@ async function loadGame() {
     }
 
     document.getElementById("game").innerHTML = `
-        <div class="detail-header">
-            <button class="master-edit-btn" onclick="toggleEditMode()">${editMode ? "Done" : "Edit"}</button>
-        </div>
 
         <img
             class="detail-image"
@@ -61,22 +58,22 @@ async function loadGame() {
             onerror="handleImageError(this, '${game.id}')"
         >
 
-        <h1>${escapeHTML(game.name)}</h1>
+        <h2>${escapeHTML(game.name)}</h2>
 
         ${game.archived ? `<p class="archived-banner">Archived — disposed of / thrown out</p>` : ""}
 
         <p>${escapeHTML(game.description || "")}</p>
 
         <div class="detail-badges">
-            ${game.type ? `<span class="badge">${escapeHTML(typeLabel(game.type))}</span>` : ""}
-            ${game.length ? `<span class="badge">${escapeHTML(game.length)} min</span>` : ""}
-            ${game.rating ? `<span class="badge badge-rating">${escapeHTML(game.rating)}</span>` : ""}
+            ${game.type ? `<span class="badge badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
+            ${game.length ? `<span class="badge badge-length-${escapeHTML(game.length)}">${escapeHTML(game.length)} min</span>` : ""}
+            ${game.rating ? `<span class="badge badge-rating-${escapeHTML(game.rating)}">${escapeHTML(game.rating)}</span>` : ""}
             ${game.tag ? `<span class="badge badge-tag">${escapeHTML(game.tag)}</span>` : ""}
         </div>
 
         <div class="detail-actions">
             <button onclick="addPlayForGame()">Add Play</button>
-            ${editMode ? `<button onclick="openEditor()">Edit</button>` : ""}
+            <button onclick="openEditor()">Edit</button>
             ${editMode ? `<button onclick="removeGame()">Delete Game</button>` : ""}
         </div>
 
@@ -84,6 +81,11 @@ async function loadGame() {
     `;
 
     const plays = await getPlaysForGame(gameId);
+
+
+    document.getElementById("master-edit").innerHTML = `
+		<button class="master-edit-btn" onclick="toggleEditMode()">${editMode ? "Done" : "Edit"}</button>
+	`
 
     document.getElementById("history").innerHTML = plays
         .sort((a, b) => (a.date < b.date ? 1 : -1))
