@@ -397,11 +397,10 @@ button.secondary {
     background: #28a745;
 }
 
-.badge-length-30  { background:#8fd3ff; color:#222; }
+.badge-length-30  { background:#66c2ff; }
 .badge-length-60  { background:#4ea9ff; }
 .badge-length-90  { background:#1d78d6; }
 .badge-length-120 { background:#114c8d; }
-
 
 .badge-rating-S {
     background:#ffb400;
@@ -410,7 +409,9 @@ button.secondary {
 }
 
 .badge-rating-A {
-    background:#4caf50;
+    background:#23df2b;
+    font-weight: 700;
+    color:#222;
 }
 
 .badge-rating-B {
@@ -420,15 +421,21 @@ button.secondary {
 }
 
 .badge-rating-C {
-    background:#ff9800;
+    background:#ff7500;
+    font-weight: 700;
+    color:#222;
 }
 
 .badge-rating-D {
-    background:#e53935;
+    background:#ef2b27;
+    font-weight: 700;
+    color:#222;
 }
 
 .badge-rating-UP, .badge-rating-GF, .badge-rating-- {
-    background:#757575;
+    background:#aeaeae;
+    font-weight: 700;
+    color:#222;
 }
 
 .badge-tag {
