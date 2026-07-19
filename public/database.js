@@ -47,9 +47,20 @@ function getGames() {
     return new Promise((resolve, reject) => {
         const tx = db.transaction("games", "readonly");
         const request = tx.objectStore("games").getAll();
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => resolve(request.result.map(migrateGameTags));
         request.onerror = () => reject(request.error);
     });
+}
+
+// Older versions of the app stored a single `tag` string per game. This upgrades
+// that in memory to the new `tags` array on every read, without touching what's
+// on disk — the record is only rewritten (dropping the old field) the next time
+// the game is actually saved via addGame/updateGame.
+function migrateGameTags(game) {
+    if (!Array.isArray(game.tags)) {
+        game.tags = game.tag ? [game.tag] : [];
+    }
+    return game;
 }
 
 // Local edits go through addGame/updateGame, which stamp updatedAt with the current

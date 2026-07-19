@@ -24,7 +24,10 @@ function renderNav(activePage) {
         </div>
         ${
             profile
-                ? `<div class="sync-status" id="sync-status">Last synced: ${roughlyAgo(getLastSync())}</div>`
+                ? `<div class="sync-status" id="sync-status">
+                       <span id="sync-filter-indicator" class="sync-filter-indicator"></span>
+                       <span id="sync-status-text" class="sync-status-text">Last synced: ${roughlyAgo(getLastSync())}</span>
+                   </div>`
                 : ""
         }
     `;
@@ -32,7 +35,7 @@ function renderNav(activePage) {
 
 async function handleSyncClick() {
     const btn = document.getElementById("sync-btn");
-    const status = document.getElementById("sync-status");
+    const status = document.getElementById("sync-status-text");
 
     if (btn) {
         btn.disabled = true;
@@ -43,7 +46,7 @@ async function handleSyncClick() {
         const result = await syncNow();
         setLastSync(new Date().toISOString());
         if (status) {
-            status.textContent = `Synced just now — ${result.games} games, ${result.plays} plays`;
+            status.textContent = `Synced now: ${result.games} · ${result.plays}`;
         }
         if (typeof onSyncComplete === "function") {
             onSyncComplete();

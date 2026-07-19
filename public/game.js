@@ -68,8 +68,16 @@ async function loadGame() {
             ${game.type ? `<span class="badge badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
             ${game.length ? `<span class="badge badge-length-${escapeHTML(game.length)}">${escapeHTML(game.length)} min</span>` : ""}
             ${game.rating ? `<span class="badge badge-rating-${escapeHTML(game.rating)}">${escapeHTML(game.rating)}</span>` : ""}
-            ${game.tag ? `<span class="badge badge-tag">${escapeHTML(game.tag)}</span>` : ""}
         </div>
+
+        ${
+            (game.tags || []).length
+                ? `<div class="detail-tags">
+                       <span class="detail-tags-label">Tags:</span>
+                       ${game.tags.sort().map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`).join("")}
+                   </div>`
+                : ""
+        }
 
         <div class="detail-actions">
             <button onclick="addPlayForGame()">Add Play</button>

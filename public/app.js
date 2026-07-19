@@ -5,12 +5,24 @@ let gamesContainer;
 let allGames = [];
 let allPlays = [];
 
+// Tags currently checked in the tag filter dropdown. A game must carry ALL of these
+// to match (narrowing filter), not just any one of them.
+let selectedTagFilters = [];
+
 window.onload = async () => {
     gamesContainer = document.getElementById("games");
     registerServiceWorker();
     await initDatabase();
     renderNav("home");
     await loadGames();
+
+    // Close the tag filter dropdown when clicking anywhere outside it.
+    document.addEventListener("click", e => {
+        const dropdown = document.getElementById("tagFilterDropdown");
+        if (dropdown && !dropdown.contains(e.target)) {
+            closeTagFilterMenu();
+        }
+    });
 };
 
 // Called by nav.js after a successful sync so the list reflects any new data.
@@ -42,21 +54,65 @@ async function loadGames() {
 // The tag filter's options depend on what tags actually exist in the collection,
 // so it's rebuilt whenever the underlying games change (not on every filter tweak).
 function populateTagFilterOptions() {
-    const select = document.getElementById("filterTag");
-    const previousValue = select.value;
+    const menu = document.getElementById("tagFilterMenu");
+    if (!menu) return;
 
-    const tags = Array.from(new Set(allGames.map(g => (g.tag || "").trim()).filter(Boolean))).sort((a, b) =>
+    const tags = Array.from(new Set(allGames.flatMap(g => g.tags || []))).sort((a, b) =>
         a.localeCompare(b, undefined, { sensitivity: "base" })
     );
 
-    select.innerHTML =
-        `<option value="">All tags</option>` +
-        tags
-            .map(
-                tag =>
-                    `<option value="${escapeHTML(tag)}" ${tag === previousValue ? "selected" : ""}>${escapeHTML(tag)}</option>`
-            )
-            .join("");
+    // Drop any previously-selected tags that no longer exist on any game.
+    selectedTagFilters = selectedTagFilters.filter(t => tags.includes(t));
+
+    if (tags.length === 0) {
+        menu.innerHTML = `<p class="tag-filter-empty">No tags yet</p>`;
+    } else {
+        // Without line-break/indentation whitespace.
+        menu.innerHTML = tags.map(
+			tag =>
+				`<label class="tag-filter-option">` +
+				`<input type="checkbox" value="${escapeHTML(tag)}" ${selectedTagFilters.includes(tag) ? "checked" : ""} onchange="onTagFilterChange(this)">` +
+				`<span>${escapeHTML(tag)}</span>` +
+				`</label>`
+		).join("");
+    }
+
+    updateTagFilterToggleLabel();
+}
+
+function onTagFilterChange(checkbox) {
+    const tag = checkbox.value;
+    if (checkbox.checked) {
+        if (!selectedTagFilters.includes(tag)) selectedTagFilters.push(tag);
+    } else {
+        selectedTagFilters = selectedTagFilters.filter(t => t !== tag);
+    }
+    updateTagFilterToggleLabel();
+    renderGames();
+}
+
+function updateTagFilterToggleLabel() {
+    const toggle = document.getElementById("tagFilterToggle");
+    if (!toggle) return;
+
+    if (selectedTagFilters.length === 0) {
+        toggle.textContent = "All tags ▾";
+    } else if (selectedTagFilters.length === 1) {
+        toggle.textContent = `${selectedTagFilters[0]} ▾`;
+    } else {
+        toggle.textContent = `${selectedTagFilters.length} tags ▾`;
+    }
+}
+
+function toggleTagFilterMenu() {
+    const menu = document.getElementById("tagFilterMenu");
+    if (!menu) return;
+    menu.hidden = !menu.hidden;
+}
+
+function closeTagFilterMenu() {
+    const menu = document.getElementById("tagFilterMenu");
+    if (menu) menu.hidden = true;
 }
 
 function clearFilters() {
@@ -64,9 +120,10 @@ function clearFilters() {
     document.getElementById("filterType").value = "";
     document.getElementById("filterLength").value = "";
     document.getElementById("filterRating").value = "";
-    document.getElementById("filterTag").value = "";
     document.getElementById("filterArchived").value = "active";
     document.getElementById("filterLastPlayed").value = "";
+    selectedTagFilters = [];
+    populateTagFilterOptions();
     renderGames();
 }
 
@@ -74,8 +131,15 @@ function matchesSearch(game, query) {
     if (!query) return true;
     return (
         (game.name || "").toLowerCase().includes(query) ||
-        (game.tag || "").toLowerCase().includes(query)
+        (game.tags || []).some(t => t.toLowerCase().includes(query))
     );
+}
+
+// A game must carry every currently-checked tag to match (narrowing filter).
+function matchesTags(game, selected) {
+    if (selected.length === 0) return true;
+    const gameTags = game.tags || [];
+    return selected.every(t => gameTags.includes(t));
 }
 
 function matchesArchived(game, mode) {
@@ -124,7 +188,6 @@ function renderGames() {
     const typeFilter = document.getElementById("filterType").value;
     const lengthFilter = document.getElementById("filterLength").value;
     const ratingFilter = document.getElementById("filterRating").value;
-    const tagFilter = document.getElementById("filterTag").value;
     const archivedFilter = document.getElementById("filterArchived").value;
     const lastPlayedFilter = document.getElementById("filterLastPlayed").value;
 
@@ -134,9 +197,11 @@ function renderGames() {
         .filter(game => !typeFilter || game.type === typeFilter)
         .filter(game => !lengthFilter || String(game.length) === lengthFilter)
         .filter(game => !ratingFilter || game.rating === ratingFilter)
-        .filter(game => !tagFilter || (game.tag || "") === tagFilter)
+        .filter(game => matchesTags(game, selectedTagFilters))
         .filter(game => matchesLastPlayed(game, lastPlayedFilter, allPlays))
         .sort(byFavouriteThenName);
+
+    updateFilterIndicator(visible);
 
     gamesContainer.innerHTML = "";
 
@@ -165,7 +230,7 @@ function renderGames() {
 					${game.type ? `<span class="badge badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
 					${game.length ? `<span class="badge badge-length-${escapeHTML(game.length)}">${escapeHTML(game.length)} min</span>` : ""}
                     ${game.rating ? `<span class="badge badge-rating-${escapeHTML(game.rating)}">${escapeHTML(game.rating)}</span>` : ""}
-                    ${game.tag ? `<span class="badge badge-tag">${escapeHTML(game.tag)}</span>` : ""}
+                    ${(game.tags || []).sort().map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`).join("")}
                     ${game.archived ? `<span class="badge badge-archived">Archived</span>` : ""}
                 </div>
 
@@ -188,33 +253,35 @@ function renderGames() {
     });
 }
 
+// Shows the currently-filtered game count and total play sessions on the right side
+// of the shared sync status bar (only present/populated on this page).
+function updateFilterIndicator(visibleGames) {
+    const indicator = document.getElementById("sync-filter-indicator");
+    if (!indicator) return;
+
+    const visibleIds = new Set(visibleGames.map(g => g.id));
+    const totalPlays = allPlays.filter(p => visibleIds.has(p.gameId)).length;
+
+    indicator.textContent = `${visibleGames.length} games · ${totalPlays} plays`;
+}
+
 async function createGame() {
-    const input = document.getElementById("gameName");
-    const name = input.value.trim();
-
-    if (!name) return;
-
-    const game = {
+    const blankGame = {
         id: uuid(),
-        name,
+        name: "",
         image: "images/default-game.jpg",
         favourite: false,
         archived: false,
+        tags: [],
         created: new Date().toISOString()
     };
 
-    await addGame(game);
-    input.value = "";
-    await loadGames();
+    const created = await openGameEditor(blankGame, { title: "Add Game" });
+    if (!created) return null; // cancelled — nothing was saved
 
-    if (getServerUrl() && confirm(`Search BoardGameGeek for a cover image for "${name}"?`)) {
-        const chosen = await openImagePicker(game.id, name, game.image);
-        if (chosen) {
-            game.image = chosen;
-            await updateGame(game);
-            loadGames();
-        }
-    }
+    await addGame(created);
+    await loadGames();
+    return created;
 }
 
 async function recordPlay(gameId) {

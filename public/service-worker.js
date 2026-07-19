@@ -1,4 +1,4 @@
-const CACHE_NAME = "boardgame-v6";
+const CACHE_NAME = "boardgame-v8";
 
 const FILES = [
     "./",

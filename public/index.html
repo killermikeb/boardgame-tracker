@@ -23,11 +23,6 @@
 
 <main>
 
-    <section class="add-game">
-        <input id="gameName" placeholder="Enter game name">
-        <button onclick="createGame()">Add Game</button>
-    </section>
-
     <section class="filters">
         <input type="text" id="searchInput" placeholder="Search by name or tag…" oninput="renderGames()">
 
@@ -55,9 +50,10 @@
             <option value="UP">UP</option>
         </select>
 
-        <select id="filterTag" onchange="renderGames()">
-            <option value="">All tags</option>
-        </select>
+        <div class="tag-filter" id="tagFilterDropdown">
+            <button type="button" id="tagFilterToggle" class="tag-filter-toggle" onclick="toggleTagFilterMenu()">All tags ▾</button>
+            <div class="tag-filter-menu" id="tagFilterMenu" hidden></div>
+        </div>
 
         <select id="filterArchived" onchange="renderGames()">
             <option value="active" selected>Active only</option>
@@ -74,6 +70,7 @@
         </select>
 
         <button class="secondary" onclick="clearFilters()">Clear filters</button>
+        <button onclick="createGame()">+ Add Game</button>
     </section>
 
     <section id="games"></section>
