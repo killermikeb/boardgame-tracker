@@ -86,6 +86,14 @@ If no server is configured, picked images are still saved directly to the
 device (as a local copy) but won't be shared to other devices until you
 connect one.
 
+When a BGG cover or pasted URL is swapped for a server-hosted copy, the
+original URL is kept on the game record as `imageSource` for reference —
+it's never used as a fallback if the server becomes unreachable. Every
+device also opportunistically caches a local offline copy of each game's
+image (whether server-hosted or not) the next time it syncs while
+online, so images keep showing even if their original host later goes
+down.
+
 ## Game fields
 
 Beyond name, description, and image, each game can have:

@@ -31,21 +31,19 @@ async function downloadProfileData(profileId) {
 async function writeServerRecordsLocally(games, plays) {
     for (const game of games) await putGameRaw(game);
     for (const play of plays) await putPlayRaw(play);
-    cacheMissingServerImages(games);
+    cacheMissingImages(games);
 }
 
-// A game's `image` field can point at this server (e.g. set from another device, or
-// downloaded before this device ever cached it). We're reachable right now — we just
-// talked to the server — so this is the best chance to grab a local offline copy
-// before the server (e.g. a home Raspberry Pi) becomes unreachable, such as when out
-// and about. Fire-and-forget: cacheImageLocally() is already best-effort/silent, and
-// this shouldn't hold up the sync itself.
-function cacheMissingServerImages(games) {
-    const serverUrl = getServerUrl();
-    if (!serverUrl) return;
-
+// A game's `image` can point at this server (e.g. set from another device, or
+// downloaded before this device ever cached it) or at some other remote host — a
+// BoardGameGeek cover, or a pasted URL from before a server was ever configured. Either
+// way, we're online right now — we just talked to the server — so this is the best
+// chance to grab a local offline copy before that host becomes unreachable, such as
+// when out and about. Fire-and-forget: cacheImageLocally() is already best-effort/
+// silent, and this shouldn't hold up the sync itself.
+function cacheMissingImages(games) {
     for (const game of games) {
-        if (!game.image || !game.image.startsWith(serverUrl)) continue;
+        if (!/^https?:\/\//i.test(game.image || "")) continue; // skip data: URLs and local paths — no fetch needed
         getCachedImage(game.id).then(cached => {
             if (!cached) cacheImageLocally(game.id, game.image);
         });
