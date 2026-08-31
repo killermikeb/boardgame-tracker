@@ -66,11 +66,13 @@ function migrateGameTags(game) {
 // Local edits go through addGame/updateGame, which stamp updatedAt with the current
 // time so the server can tell which copy of a record (local vs. server) is newer.
 function addGame(game) {
+    delete game.tag; // superseded by `tags` — drop it on every save, not just via the editor
     game.updatedAt = Date.now();
     return putGameRaw(game);
 }
 
 function updateGame(game) {
+    delete game.tag; // superseded by `tags` — drop it on every save, not just via the editor
     game.updatedAt = Date.now();
     return putGameRaw(game);
 }

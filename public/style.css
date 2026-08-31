@@ -150,8 +150,14 @@ main {
 	padding: 4px 20px;
 	background: #eee;
 	font-size: 0.9rem;
+}
+
+.sync-filter-indicator,
+.sync-status-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
 	white-space: nowrap;
-	
+	min-width: 0;
 }
 
 
@@ -507,6 +513,7 @@ button.secondary {
 	border-radius: 8px;
 	border: 1px solid #ccc;
 	box-sizing: border-box;
+	font-family: inherit;
 }
 
 .modal textarea {

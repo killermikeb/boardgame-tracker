@@ -74,7 +74,11 @@ async function loadGame() {
             (game.tags || []).length
                 ? `<div class="detail-tags">
                        <span class="detail-tags-label">Tags:</span>
-                       ${game.tags.sort().map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`).join("")}
+                       ${game.tags
+                           .slice()
+                           .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+                           .map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`)
+                           .join("")}
                    </div>`
                 : ""
         }
@@ -145,7 +149,7 @@ async function openEditor() {
     const game = games.find(g => g.id === gameId);
     if (!game) return;
 
-    const updated = await openGameEditor(game);
+    const updated = await openGameEditor(game, { existingGames: games });
     if (!updated) return;
 
     await updateGame(updated);
