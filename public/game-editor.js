@@ -16,6 +16,7 @@ async function openGameEditor(game, opts = {}) {
 
     return new Promise(resolve => {
         let currentImage = game.image || "images/default-game.jpg";
+        let currentImageSource = game.imageSource || null;
         let tags = Array.isArray(game.tags) ? [...game.tags] : (game.tag ? [game.tag] : []);
 
         const lengthOptions = [30, 60, 90, 120];
@@ -162,8 +163,9 @@ async function openGameEditor(game, opts = {}) {
             const nameNow = overlay.querySelector("#editor-name").value.trim() || game.name;
             const chosen = await openImagePicker(game.id, nameNow, currentImage);
             if (chosen) {
-                currentImage = chosen;
-                overlay.querySelector("#editor-image-preview").src = chosen;
+                currentImage = chosen.image;
+                currentImageSource = chosen.imageSource || null;
+                overlay.querySelector("#editor-image-preview").src = currentImage;
             }
         };
 
@@ -188,7 +190,8 @@ async function openGameEditor(game, opts = {}) {
                 rating: overlay.querySelector("#editor-rating").value || null,
                 tags,
                 archived: overlay.querySelector("#editor-archived").checked,
-                image: currentImage
+                image: currentImage,
+                imageSource: currentImageSource
             };
 
             close(finalGame);

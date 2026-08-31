@@ -57,7 +57,7 @@ function openImagePicker(gameId, gameName, currentImage) {
         });
 
         overlay.querySelector("#cancel-btn").onclick = () => close(null);
-        overlay.querySelector("#use-default-btn").onclick = () => close("images/default-game.jpg");
+        overlay.querySelector("#use-default-btn").onclick = () => close({ image: "images/default-game.jpg" });
 
         overlay.querySelector("#bgg-search-btn").onclick = () =>
             runBggSearch(overlay, gameId, close);
@@ -132,7 +132,7 @@ async function pickRemoteImage(overlay, gameId, url, close) {
 
     if (!getServerUrl()) {
         await cacheImageLocally(gameId, url);
-        close(url);
+        close({ image: url });
         return;
     }
 
@@ -145,7 +145,9 @@ async function pickRemoteImage(overlay, gameId, url, close) {
         });
         const fullUrl = getServerUrl() + result.image;
         await cacheImageLocally(gameId, fullUrl);
-        close(fullUrl);
+        // imageSource records where the server's copy came from, for reference only —
+        // it's never used as a fallback if the server becomes unreachable.
+        close({ image: fullUrl, imageSource: url });
     } catch (err) {
         if (statusEl) statusEl.textContent = `Couldn't save that image: ${err.message}`;
     }
@@ -166,7 +168,7 @@ async function pickUploadedImage(overlay, gameId, file, close) {
     await setCachedImage(gameId, dataUrl);
 
     if (!getServerUrl()) {
-        close(dataUrl);
+        close({ image: dataUrl });
         return;
     }
 
@@ -177,10 +179,12 @@ async function pickUploadedImage(overlay, gameId, file, close) {
             method: "POST",
             body: JSON.stringify({ gameId, dataUrl })
         });
-        close(getServerUrl() + result.image);
+        // No imageSource here — the source was a local file, not a URL, so there's
+        // nothing meaningful to record.
+        close({ image: getServerUrl() + result.image });
     } catch (err) {
         if (statusEl) statusEl.textContent = `Upload failed, using local copy only: ${err.message}`;
         // Still usable offline even though the server copy failed.
-        setTimeout(() => close(dataUrl), 1500);
+        setTimeout(() => close({ image: dataUrl }), 1500);
     }
 }
