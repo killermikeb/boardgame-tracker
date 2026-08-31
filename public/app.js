@@ -230,7 +230,11 @@ function renderGames() {
 					${game.type ? `<span class="badge badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
 					${game.length ? `<span class="badge badge-length-${escapeHTML(game.length)}">${escapeHTML(game.length)} min</span>` : ""}
                     ${game.rating ? `<span class="badge badge-rating-${escapeHTML(game.rating)}">${escapeHTML(game.rating)}</span>` : ""}
-                    ${(game.tags || []).sort().map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`).join("")}
+                    ${(game.tags || [])
+                        .slice()
+                        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+                        .map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`)
+                        .join("")}
                     ${game.archived ? `<span class="badge badge-archived">Archived</span>` : ""}
                 </div>
 
@@ -276,7 +280,7 @@ async function createGame() {
         created: new Date().toISOString()
     };
 
-    const created = await openGameEditor(blankGame, { title: "Add Game" });
+    const created = await openGameEditor(blankGame, { title: "Add Game", existingGames: allGames });
     if (!created) return null; // cancelled — nothing was saved
 
     await addGame(created);

@@ -3,10 +3,13 @@
 // calling addGame()/updateGame() with it), or null if the user cancelled.
 //
 // opts.title lets callers relabel the modal (e.g. "Add Game" vs "Edit Game").
+// opts.existingGames lets a caller that already has the current games list (e.g.
+// just fetched to look up the game being edited) pass it in, avoiding a redundant
+// IndexedDB round trip before the modal can open.
 async function openGameEditor(game, opts = {}) {
     // Pulled in up front so the tag input can offer autocomplete suggestions from
     // tags already used elsewhere in the library.
-    const existingGames = await getGames();
+    const existingGames = opts.existingGames || (await getGames());
     const tagSuggestions = Array.from(
         new Set(existingGames.flatMap(g => g.tags || []))
     ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
@@ -187,7 +190,6 @@ async function openGameEditor(game, opts = {}) {
                 archived: overlay.querySelector("#editor-archived").checked,
                 image: currentImage
             };
-            delete finalGame.tag; // superseded by `tags`
 
             close(finalGame);
         };
