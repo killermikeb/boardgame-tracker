@@ -37,7 +37,7 @@ function toggleEditMode() {
 }
 
 async function loadGame() {
-    const games = await getGames();
+    const games = await getGamesWithPrefs();
     const game = games.find(g => g.id === gameId);
 
     if (!game) {
@@ -117,6 +117,81 @@ async function loadGame() {
             `
         )
         .join("");
+
+    renderBoxes();
+}
+
+async function renderBoxes() {
+    const [boxes, storageLocations] = await Promise.all([
+        getBoxesForGame(gameId),
+        getStorageLocations()
+    ]);
+    const locationsById = new Map(storageLocations.map(loc => [loc.id, loc]));
+
+    const rows = boxes
+        .slice()
+        .sort((a, b) => (a.label || "").localeCompare(b.label || "", undefined, { sensitivity: "base" }))
+        .map(box => {
+            const location = box.storageLocationId ? locationsById.get(box.storageLocationId) : null;
+            const dims = formatDimensions(box);
+            return `
+                <div class="history-item">
+                    <span>
+                        ${escapeHTML(box.label)}
+                        ${dims ? `<span class="modal-hint"> — ${escapeHTML(dims)}</span>` : ""}
+                        <span class="modal-hint"> · ${escapeHTML(location ? location.name : "Unassigned")}</span>
+                        ${box.mustBeFlat ? `<span class="badge badge-tag">Must store flat</span>` : ""}
+                    </span>
+                    ${
+                        editMode
+                            ? `<span class="history-actions">
+                                   <button onclick="handleEditBox('${box.id}')">Edit</button>
+                                   <button onclick="handleDeleteBox('${box.id}')">Delete</button>
+                               </span>`
+                            : ""
+                    }
+                </div>
+            `;
+        })
+        .join("");
+
+    document.getElementById("boxes").innerHTML =
+        (rows || `<p class="modal-hint">No boxes yet.</p>`) +
+        (editMode ? `<button onclick="handleAddBox()">+ Add Box</button>` : "");
+}
+
+async function handleAddBox() {
+    const storageLocations = await getStorageLocations();
+    const result = await openBoxEditor(
+        { label: "", storageLocationId: null, mustBeFlat: false },
+        storageLocations,
+        { title: "Add Box" }
+    );
+    if (!result) return;
+
+    await addBox({ id: uuid(), gameId, ...result });
+    renderBoxes();
+}
+
+async function handleEditBox(id) {
+    const [boxes, storageLocations] = await Promise.all([
+        getBoxesForGame(gameId),
+        getStorageLocations()
+    ]);
+    const box = boxes.find(b => b.id === id);
+    if (!box) return;
+
+    const result = await openBoxEditor(box, storageLocations, { title: "Edit Box" });
+    if (!result) return;
+
+    await updateBox({ ...box, ...result });
+    renderBoxes();
+}
+
+async function handleDeleteBox(id) {
+    if (!confirm("Delete this box?")) return;
+    await deleteBox(id);
+    renderBoxes();
 }
 
 async function addPlayForGame() {
@@ -145,14 +220,17 @@ async function deletePlay(id) {
 }
 
 async function openEditor() {
-    const games = await getGames();
+    const games = await getGamesWithPrefs();
     const game = games.find(g => g.id === gameId);
     if (!game) return;
 
-    const updated = await openGameEditor(game, { existingGames: games });
-    if (!updated) return;
+    const result = await openGameEditor(game, { existingGames: games });
+    if (!result) return;
 
-    await updateGame(updated);
+    await updateGame(result.game);
+    // Preserve favourite, which this editor never touches.
+    const existingPref = (await getGamePref(result.game.id)) || {};
+    await setGamePref(result.game.id, { ...existingPref, ...result.prefs });
     loadGame();
 }
 

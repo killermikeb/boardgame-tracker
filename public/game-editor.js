@@ -1,6 +1,9 @@
-// Modal form for editing a game's details, including the image. Resolves with the
-// updated game object (not yet saved to the database — the caller is responsible for
-// calling addGame()/updateGame() with it), or null if the user cancelled.
+// Modal form for editing a game's shared details (name/description/type/length/tags/
+// image) plus this profile's own rating and archived status. Resolves with
+// { game, prefs } — game is the shared record (not yet saved — the caller calls
+// addGame()/updateGame() with it) and prefs is { rating, archived } (the caller calls
+// setGamePref() with it, merging in favourite, which this editor never touches) — or
+// resolves null if the user cancelled.
 //
 // opts.title lets callers relabel the modal (e.g. "Add Game" vs "Edit Game").
 // opts.existingGames lets a caller that already has the current games list (e.g.
@@ -13,6 +16,10 @@ async function openGameEditor(game, opts = {}) {
     const tagSuggestions = Array.from(
         new Set(existingGames.flatMap(g => g.tags || []))
     ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+
+    // rating/archived are this profile's own prefs, not part of the shared game
+    // record — prefilled from gamePrefs rather than from `game` itself.
+    const prefs = (await getGamePref(game.id)) || {};
 
     return new Promise(resolve => {
         let currentImage = game.image || "images/default-game.jpg";
@@ -69,7 +76,7 @@ async function openGameEditor(game, opts = {}) {
                         <select id="editor-rating">
                             <option value="">—</option>
                             ${ratingOptions
-                                .map(r => `<option value="${r}" ${game.rating === r ? "selected" : ""}>${r}</option>`)
+                                .map(r => `<option value="${r}" ${prefs.rating === r ? "selected" : ""}>${r}</option>`)
                                 .join("")}
                         </select>
                     </div>
@@ -86,7 +93,7 @@ async function openGameEditor(game, opts = {}) {
                 </div>
 
                 <label class="checkbox-row">
-                    <input type="checkbox" id="editor-archived" ${game.archived ? "checked" : ""}>
+                    <input type="checkbox" id="editor-archived" ${prefs.archived ? "checked" : ""}>
                     Archived (disposed of / thrown out)
                 </label>
 
@@ -181,20 +188,28 @@ async function openGameEditor(game, opts = {}) {
             // Pick up anything still sitting uncommitted in the tag input.
             addTag(tagInput.value);
 
+            // rating/favourite/archived aren't part of the shared game record — drop
+            // any that rode along on `game` (e.g. from getGamesWithPrefs()) rather than
+            // let them leak back into games.json.
+            const { rating: _rating, favourite: _favourite, archived: _archived, ...sharedFields } = game;
+
             const finalGame = {
-                ...game,
+                ...sharedFields,
                 name,
                 description: overlay.querySelector("#editor-description").value.trim(),
                 type: overlay.querySelector("#editor-type").value || null,
                 length: length ? Number(length) : null,
-                rating: overlay.querySelector("#editor-rating").value || null,
                 tags,
-                archived: overlay.querySelector("#editor-archived").checked,
                 image: currentImage,
                 imageSource: currentImageSource
             };
 
-            close(finalGame);
+            const finalPrefs = {
+                rating: overlay.querySelector("#editor-rating").value || null,
+                archived: overlay.querySelector("#editor-archived").checked
+            };
+
+            close({ game: finalGame, prefs: finalPrefs });
         };
     });
 }

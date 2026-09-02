@@ -1,0 +1,281 @@
+// One-time migration: per-profile data silos -> shared library + per-profile prefs.
+// ------------------------------------------------------------------------------------
+// Run by hand on the Pi, with the server stopped:
+//   node migrate-to-shared-library.js            (dry run — prints a report, writes nothing)
+//   node migrate-to-shared-library.js --apply     (writes the new shared files)
+//
+// Reads every data/profile-{id}.json (old shape: {games: [...], plays: [...]}, with
+// rating/favourite/archived on each game) and builds the new shared data/games.json,
+// data/plays.json, data/game-prefs.json, relocating cover images out of their
+// per-profile folders. Original profile-{id}.json files are renamed to .bak, never
+// deleted, so a bad migration can always be undone by hand.
+//
+// Games with an exact-match name (trimmed, case-insensitive) across profiles are
+// merged into a single shared record. This is a blunt heuristic — it can wrongly
+// merge two different games that happen to share a name, and it won't catch near-
+// duplicates (typos, diacritics). That's why this only ever runs with --apply after
+// a human has read the dry-run report below.
+
+const fs = require("fs");
+const path = require("path");
+
+const DATA_DIR = path.join(__dirname, "data");
+const GAME_IMAGES_DIR = path.join(DATA_DIR, "game-images");
+const PROFILES_FILE = path.join(DATA_DIR, "profiles.json");
+const GAMES_FILE = path.join(DATA_DIR, "games.json");
+const PLAYS_FILE = path.join(DATA_DIR, "plays.json");
+const GAME_PREFS_FILE = path.join(DATA_DIR, "game-prefs.json");
+const STORAGE_LOCATIONS_FILE = path.join(DATA_DIR, "storage-locations.json");
+const BOXES_FILE = path.join(DATA_DIR, "boxes.json");
+
+const APPLY = process.argv.includes("--apply");
+
+function readJSON(filePath, fallback) {
+    try {
+        return JSON.parse(fs.readFileSync(filePath, "utf8"));
+    } catch (err) {
+        return fallback;
+    }
+}
+
+function writeJSON(filePath, data) {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// Same last-write-wins union merge as server.js's mergeRecords — duplicated here (server.js
+// has no module.exports) as a belt-and-suspenders guard against id collisions across
+// profiles' play lists, which shouldn't happen with UUIDs but costs nothing to guard.
+function mergeRecords(existing, incoming) {
+    const byId = new Map();
+    for (const record of existing) byId.set(record.id, record);
+    for (const record of incoming) {
+        const current = byId.get(record.id);
+        if (!current || (record.updatedAt || 0) >= (current.updatedAt || 0)) {
+            byId.set(record.id, record);
+        }
+    }
+    return Array.from(byId.values());
+}
+
+function hasPrefs(game) {
+    return Boolean(game.rating) || Boolean(game.favourite) || Boolean(game.archived);
+}
+
+function nameKey(name) {
+    return (name || "").trim().toLowerCase();
+}
+
+function main() {
+    if (!fs.existsSync(PROFILES_FILE)) {
+        console.error(`No ${PROFILES_FILE} found — nothing to migrate.`);
+        process.exit(1);
+    }
+
+    const profiles = readJSON(PROFILES_FILE, []);
+    if (profiles.length === 0) {
+        console.log("No profiles found — nothing to migrate.");
+        return;
+    }
+
+    // Load every profile's games/plays, tagging each in-memory game with its source
+    // profile so plays/prefs/images can be traced back after clustering.
+    const allGames = []; // { ...game, sourceProfileId }
+    const allPlays = []; // raw play records, gameId not yet remapped
+    const missingFiles = [];
+
+    for (const profile of profiles) {
+        const file = path.join(DATA_DIR, `profile-${profile.id}.json`);
+        if (!fs.existsSync(file)) {
+            missingFiles.push(file);
+            continue;
+        }
+        const data = readJSON(file, { games: [], plays: [] });
+        for (const game of data.games || []) {
+            allGames.push({ ...game, sourceProfileId: profile.id });
+        }
+        for (const play of data.plays || []) {
+            allPlays.push(play);
+        }
+    }
+
+    if (missingFiles.length) {
+        console.log(`Note: ${missingFiles.length} profile(s) had no data file (skipped):`);
+        missingFiles.forEach(f => console.log(`  ${f}`));
+    }
+
+    // Cluster games by exact (trimmed, case-insensitive) name match.
+    const clusters = new Map(); // nameKey -> game[]
+    for (const game of allGames) {
+        const key = nameKey(game.name);
+        if (!clusters.has(key)) clusters.set(key, []);
+        clusters.get(key).push(game);
+    }
+
+    const oldGameIdToSurvivorId = new Map();
+    const survivorGames = []; // final games.json entries (shared fields only)
+    const report = []; // per-cluster summary lines
+
+    for (const [key, members] of clusters) {
+        // Survivor = most-recently-updated member, matching the app's own LWW philosophy.
+        const survivor = members.reduce((best, g) =>
+            (g.updatedAt || 0) >= (best.updatedAt || 0) ? g : best
+        );
+
+        for (const member of members) {
+            oldGameIdToSurvivorId.set(member.id, survivor.id);
+        }
+
+        const mergedTags = [];
+        const seenTags = new Set();
+        for (const member of members) {
+            for (const tag of member.tags || []) {
+                const tagKey = tag.trim().toLowerCase();
+                if (!seenTags.has(tagKey)) {
+                    seenTags.add(tagKey);
+                    mergedTags.push(tag);
+                }
+            }
+        }
+
+        const minCreated = members
+            .map(g => g.created)
+            .filter(Boolean)
+            .sort()[0];
+
+        const {
+            rating, favourite, archived, sourceProfileId, ...sharedFields
+        } = survivor;
+
+        survivorGames.push({
+            ...sharedFields,
+            tags: mergedTags,
+            created: minCreated || survivor.created,
+            updatedAt: Date.now()
+        });
+
+        if (members.length > 1) {
+            report.push({
+                name: survivor.name,
+                survivorId: survivor.id,
+                contributingProfiles: [...new Set(members.map(g => g.sourceProfileId))],
+                memberCount: members.length
+            });
+        }
+    }
+
+    // Remap plays to their survivor gameId, then dedupe by id.
+    const remappedPlays = mergeRecords(
+        [],
+        allPlays.map(play => ({
+            ...play,
+            gameId: oldGameIdToSurvivorId.get(play.gameId) || play.gameId
+        }))
+    );
+
+    // Build game-prefs.json: gameId -> profileId -> {rating, favourite, archived, updatedAt}.
+    // Only games with a non-default rating/favourite/archived get an entry — matching the
+    // "no row = defaults" convention the rest of the app uses for prefs. On a same-profile
+    // collision within a cluster (rare — would mean one profile had two separate copies of
+    // the same-named game), the higher-updatedAt copy's prefs win.
+    const gamePrefs = {};
+    for (const game of allGames) {
+        if (!hasPrefs(game)) continue;
+        const survivorId = oldGameIdToSurvivorId.get(game.id);
+        const pref = {
+            rating: game.rating || null,
+            favourite: Boolean(game.favourite),
+            archived: Boolean(game.archived),
+            updatedAt: game.updatedAt || 0
+        };
+        if (!gamePrefs[survivorId]) gamePrefs[survivorId] = {};
+        const existing = gamePrefs[survivorId][game.sourceProfileId];
+        if (!existing || pref.updatedAt >= existing.updatedAt) {
+            gamePrefs[survivorId][game.sourceProfileId] = pref;
+        }
+    }
+    const prefsWritten = Object.values(gamePrefs).reduce(
+        (sum, byProfile) => sum + Object.keys(byProfile).length,
+        0
+    );
+
+    // Plan image relocations: data/game-images/{profileId}/{gameId}.{ext} -> data/game-images/{survivorId}.{ext}.
+    // On a cluster with more than one candidate image, only the survivor's own image (if any) is kept.
+    const imageMoves = [];
+    for (const [key, members] of clusters) {
+        const survivorId = oldGameIdToSurvivorId.get(members[0].id); // same for every member
+        const survivor = members.find(g => g.id === survivorId);
+        const srcDir = path.join(GAME_IMAGES_DIR, survivor.sourceProfileId);
+        if (!fs.existsSync(srcDir)) continue;
+        const match = fs.readdirSync(srcDir).find(f => f.startsWith(`${survivor.id}.`));
+        if (!match) continue;
+        const ext = path.extname(match);
+        imageMoves.push({
+            from: path.join(srcDir, match),
+            to: path.join(GAME_IMAGES_DIR, `${survivorId}${ext}`)
+        });
+    }
+
+    // ---------- Dry-run report (always printed) ----------
+
+    console.log(`\n${APPLY ? "APPLYING" : "DRY RUN"} — shared-library migration\n${"=".repeat(60)}`);
+    console.log(`Profiles: ${profiles.length}`);
+    console.log(`Games read: ${allGames.length} -> ${survivorGames.length} after merging duplicates`);
+    console.log(`Plays: ${allPlays.length} -> ${remappedPlays.length} after dedup`);
+    console.log(`Prefs rows carried forward: ${prefsWritten}`);
+    console.log(`Images to relocate: ${imageMoves.length}`);
+
+    if (report.length) {
+        console.log(`\nMerged duplicate-name clusters (${report.length}):`);
+        for (const entry of report) {
+            console.log(
+                `  "${entry.name}" — ${entry.memberCount} copies across ${entry.contributingProfiles.length} profile(s) -> survivor ${entry.survivorId}`
+            );
+        }
+    } else {
+        console.log("\nNo duplicate-name clusters found.");
+    }
+
+    if (!APPLY) {
+        console.log(
+            "\nDry run only — nothing written. Review the clusters above, then re-run with --apply."
+        );
+        return;
+    }
+
+    // ---------- Apply ----------
+
+    if (fs.existsSync(GAMES_FILE)) {
+        console.error(
+            `\nRefusing to apply: ${GAMES_FILE} already exists. This migration only runs once — ` +
+                "delete or move it aside first if you really mean to re-run it."
+        );
+        process.exit(1);
+    }
+
+    for (const move of imageMoves) {
+        fs.copyFileSync(move.from, move.to);
+    }
+
+    const backedUp = [];
+    for (const profile of profiles) {
+        const file = path.join(DATA_DIR, `profile-${profile.id}.json`);
+        if (!fs.existsSync(file)) continue;
+        const backup = `${file}.bak`;
+        fs.renameSync(file, backup);
+        backedUp.push(backup);
+    }
+
+    writeJSON(GAMES_FILE, survivorGames);
+    writeJSON(PLAYS_FILE, remappedPlays);
+    writeJSON(GAME_PREFS_FILE, gamePrefs);
+    if (!fs.existsSync(STORAGE_LOCATIONS_FILE)) writeJSON(STORAGE_LOCATIONS_FILE, []);
+    if (!fs.existsSync(BOXES_FILE)) writeJSON(BOXES_FILE, []);
+
+    console.log(`\nWrote ${GAMES_FILE}, ${PLAYS_FILE}, ${GAME_PREFS_FILE}.`);
+    console.log(`Relocated ${imageMoves.length} image(s) to ${GAME_IMAGES_DIR}.`);
+    console.log(`Backed up ${backedUp.length} profile data file(s):`);
+    backedUp.forEach(f => console.log(`  ${f}`));
+    console.log("\nDone. Restart the server and verify in the browser before deleting any .bak files.");
+}
+
+main();

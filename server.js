@@ -21,11 +21,31 @@ const PUBLIC_DIR = path.join(ROOT_DIR, "public");
 const DATA_DIR = path.join(ROOT_DIR, "data");
 const GAME_IMAGES_DIR = path.join(DATA_DIR, "game-images");
 const PROFILES_FILE = path.join(DATA_DIR, "profiles.json");
+const GAMES_FILE = path.join(DATA_DIR, "games.json");
+const PLAYS_FILE = path.join(DATA_DIR, "plays.json");
+const GAME_PREFS_FILE = path.join(DATA_DIR, "game-prefs.json");
+const STORAGE_LOCATIONS_FILE = path.join(DATA_DIR, "storage-locations.json");
+const BOXES_FILE = path.join(DATA_DIR, "boxes.json");
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(GAME_IMAGES_DIR, { recursive: true });
 if (!fs.existsSync(PROFILES_FILE)) {
     fs.writeFileSync(PROFILES_FILE, "[]");
+}
+if (!fs.existsSync(GAMES_FILE)) {
+    fs.writeFileSync(GAMES_FILE, "[]");
+}
+if (!fs.existsSync(PLAYS_FILE)) {
+    fs.writeFileSync(PLAYS_FILE, "[]");
+}
+if (!fs.existsSync(GAME_PREFS_FILE)) {
+    fs.writeFileSync(GAME_PREFS_FILE, "{}");
+}
+if (!fs.existsSync(STORAGE_LOCATIONS_FILE)) {
+    fs.writeFileSync(STORAGE_LOCATIONS_FILE, "[]");
+}
+if (!fs.existsSync(BOXES_FILE)) {
+    fs.writeFileSync(BOXES_FILE, "[]");
 }
 
 // ---------- Small storage helpers (flat JSON files — plenty for a home hobby server) ----------
@@ -50,19 +70,58 @@ function saveProfiles(profiles) {
     writeJSON(PROFILES_FILE, profiles);
 }
 
-function profileDataFile(id) {
-    return path.join(DATA_DIR, `profile-${id}.json`);
+function getGames() {
+    return readJSON(GAMES_FILE, []);
 }
 
-function getProfileData(id) {
-    return readJSON(profileDataFile(id), { games: [], plays: [] });
+function saveGames(games) {
+    writeJSON(GAMES_FILE, games);
 }
 
-function saveProfileData(id, data) {
-    writeJSON(profileDataFile(id), data);
+function getPlays() {
+    return readJSON(PLAYS_FILE, []);
 }
 
-// Last-write-wins merge, keyed by record id, compared by updatedAt.
+function savePlays(plays) {
+    writeJSON(PLAYS_FILE, plays);
+}
+
+function getStorageLocations() {
+    return readJSON(STORAGE_LOCATIONS_FILE, []);
+}
+
+function saveStorageLocations(locations) {
+    writeJSON(STORAGE_LOCATIONS_FILE, locations);
+}
+
+function getBoxes() {
+    return readJSON(BOXES_FILE, []);
+}
+
+function saveBoxes(boxes) {
+    writeJSON(BOXES_FILE, boxes);
+}
+
+// game-prefs.json is a nested object keyed gameId -> profileId, not a flat array like
+// the other collections — rating/favourite/archived are one profile's private opinion
+// of a shared game, so a sync request only ever carries (and may only ever overwrite)
+// its own profileId's slice. This shape makes it structurally hard for one profile's
+// sync to clobber another's prefs on the same game, which a flat union merge (keyed
+// only by gameId) would risk.
+function getGamePrefs() {
+    return readJSON(GAME_PREFS_FILE, {});
+}
+
+function saveGamePrefs(prefs) {
+    writeJSON(GAME_PREFS_FILE, prefs);
+}
+
+// Last-write-wins merge, keyed by record id, compared by updatedAt. Pure union — nothing
+// is ever removed by a sync, since deletions aren't part of the sync protocol (see
+// database.js's deleteGame/deleteBox/deleteStorageLocation). Now that games/plays/boxes/
+// storage-locations are shared across every profile, this gap means a delete on one
+// device can be silently undone by the next sync if another device still has the
+// record — a known, deferred limitation, not something introduced here.
 function mergeRecords(existing, incoming) {
     const byId = new Map();
     for (const record of existing) byId.set(record.id, record);
@@ -73,6 +132,31 @@ function mergeRecords(existing, incoming) {
         }
     }
     return Array.from(byId.values());
+}
+
+// Last-write-wins merge of one profile's prefs slice into the shared game-prefs.json,
+// keyed by gameId -> profileId -> {rating, favourite, archived, updatedAt}. Only ever
+// touches entries under `profileId` — every other profile's slice for the same gameId
+// is left untouched, unlike a flat mergeRecords union.
+function mergePrefs(prefsFile, profileId, incoming) {
+    const merged = { ...prefsFile };
+    for (const [gameId, incomingPref] of Object.entries(incoming || {})) {
+        const existingForGame = merged[gameId] || {};
+        const existingPref = existingForGame[profileId];
+        if (!existingPref || (incomingPref.updatedAt || 0) >= (existingPref.updatedAt || 0)) {
+            merged[gameId] = { ...existingForGame, [profileId]: incomingPref };
+        }
+    }
+    return merged;
+}
+
+// This profile's own slice across every game — {gameId: {rating, favourite, archived, updatedAt}}.
+function prefsForProfile(prefsFile, profileId) {
+    const slice = {};
+    for (const [gameId, byProfile] of Object.entries(prefsFile)) {
+        if (byProfile[profileId]) slice[gameId] = byProfile[profileId];
+    }
+    return slice;
 }
 
 // ---------- HTTP plumbing ----------
@@ -309,8 +393,8 @@ function serveStatic(req, res, pathname) {
     });
 }
 
-function serveGameImage(req, res, profileId, filename) {
-    const filePath = path.normalize(path.join(GAME_IMAGES_DIR, profileId, filename));
+function serveGameImage(req, res, filename) {
+    const filePath = path.normalize(path.join(GAME_IMAGES_DIR, filename));
     if (!filePath.startsWith(GAME_IMAGES_DIR)) {
         sendError(res, 403, "Forbidden");
         return;
@@ -342,19 +426,51 @@ async function handleCreateProfile(req, res) {
     const profiles = getProfiles();
     profiles.push(profile);
     saveProfiles(profiles);
-    saveProfileData(profile.id, { games: [], plays: [] });
 
     sendJSON(res, 201, profile);
 }
 
+// Full download of the shared library (games/plays/boxes/storage-locations), used once
+// when a device first selects a profile.
+async function handleGetLibraryData(req, res) {
+    sendJSON(res, 200, {
+        games: getGames(),
+        plays: getPlays(),
+        boxes: getBoxes(),
+        storageLocations: getStorageLocations()
+    });
+}
+
+// Shared-library sync: merges games/plays/boxes/storage-locations, not profile-scoped.
+async function handleLibrarySync(req, res) {
+    const body = JSON.parse((await readBody(req)) || "{}");
+
+    const merged = {
+        games: mergeRecords(getGames(), body.games || []),
+        plays: mergeRecords(getPlays(), body.plays || []),
+        boxes: mergeRecords(getBoxes(), body.boxes || []),
+        storageLocations: mergeRecords(getStorageLocations(), body.storageLocations || [])
+    };
+
+    saveGames(merged.games);
+    savePlays(merged.plays);
+    saveBoxes(merged.boxes);
+    saveStorageLocations(merged.storageLocations);
+
+    sendJSON(res, 200, merged);
+}
+
+// This profile's own rating/favourite/archived slice.
 async function handleGetProfileData(req, res, profileId) {
     const profiles = getProfiles();
     if (!profiles.some(p => p.id === profileId)) {
         return sendError(res, 404, "Profile not found");
     }
-    sendJSON(res, 200, getProfileData(profileId));
+    sendJSON(res, 200, { prefs: prefsForProfile(getGamePrefs(), profileId) });
 }
 
+// Prefs-only sync for one profile: rating/favourite/archived, keyed by gameId. Never
+// touches another profile's prefs for the same game — see mergePrefs.
 async function handleSyncProfile(req, res, profileId) {
     const profiles = getProfiles();
     if (!profiles.some(p => p.id === profileId)) {
@@ -362,26 +478,15 @@ async function handleSyncProfile(req, res, profileId) {
     }
 
     const body = JSON.parse((await readBody(req)) || "{}");
-    const existing = getProfileData(profileId);
+    const merged = mergePrefs(getGamePrefs(), profileId, body.prefs || {});
 
-    const merged = {
-        games: mergeRecords(existing.games, body.games || []),
-        plays: mergeRecords(existing.plays, body.plays || [])
-    };
-
-    saveProfileData(profileId, merged);
-    sendJSON(res, 200, merged);
+    saveGamePrefs(merged);
+    sendJSON(res, 200, { prefs: prefsForProfile(merged, profileId) });
 }
 
-async function handleSaveImage(req, res, profileId) {
-    const profiles = getProfiles();
-    if (!profiles.some(p => p.id === profileId)) {
-        return sendError(res, 404, "Profile not found");
-    }
-
+async function handleSaveImage(req, res, gameId) {
     const body = JSON.parse((await readBody(req)) || "{}");
-    const { gameId, dataUrl, url } = body;
-    if (!gameId) return sendError(res, 400, "gameId is required");
+    const { dataUrl, url } = body;
 
     let buffer, contentType;
 
@@ -400,13 +505,10 @@ async function handleSaveImage(req, res, profileId) {
         return sendError(res, 400, "Provide either dataUrl or url");
     }
 
-    const profileDir = path.join(GAME_IMAGES_DIR, profileId);
-    fs.mkdirSync(profileDir, { recursive: true });
-
     const filename = `${gameId}.${extFromContentType(contentType)}`;
-    fs.writeFileSync(path.join(profileDir, filename), buffer);
+    fs.writeFileSync(path.join(GAME_IMAGES_DIR, filename), buffer);
 
-    sendJSON(res, 200, { image: `/game-images/${profileId}/${filename}` });
+    sendJSON(res, 200, { image: `/game-images/${filename}` });
 }
 
 async function handleBggSearch(req, res, query) {
@@ -449,6 +551,14 @@ const server = http.createServer(async (req, res) => {
             return await handleCreateProfile(req, res);
         }
 
+        if (pathname === "/api/library/data" && req.method === "GET") {
+            return await handleGetLibraryData(req, res);
+        }
+
+        if (pathname === "/api/library/sync" && req.method === "POST") {
+            return await handleLibrarySync(req, res);
+        }
+
         let match;
 
         if ((match = /^\/api\/profiles\/([^/]+)\/data$/.exec(pathname)) && req.method === "GET") {
@@ -459,7 +569,7 @@ const server = http.createServer(async (req, res) => {
             return await handleSyncProfile(req, res, match[1]);
         }
 
-        if ((match = /^\/api\/profiles\/([^/]+)\/image$/.exec(pathname)) && req.method === "POST") {
+        if ((match = /^\/api\/games\/([^/]+)\/image$/.exec(pathname)) && req.method === "POST") {
             return await handleSaveImage(req, res, match[1]);
         }
 
@@ -467,8 +577,8 @@ const server = http.createServer(async (req, res) => {
             return await handleBggSearch(req, res, parsedUrl.searchParams);
         }
 
-        if ((match = /^\/game-images\/([^/]+)\/(.+)$/.exec(pathname)) && req.method === "GET") {
-            return serveGameImage(req, res, match[1], match[2]);
+        if ((match = /^\/game-images\/(.+)$/.exec(pathname)) && req.method === "GET") {
+            return serveGameImage(req, res, match[1]);
         }
 
         if (pathname.startsWith("/api/")) {

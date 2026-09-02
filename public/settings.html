@@ -47,6 +47,31 @@
         </div>
     </section>
 
+    <section class="settings-section">
+        <h2>Storage Locations</h2>
+        <p class="modal-hint">
+            Physical places boxes can be stored — a closet shelf, an attic bin, etc.
+            Shared with every profile.
+        </p>
+
+        <div id="storage-location-list"></div>
+
+        <h3>Add a storage location</h3>
+        <div class="modal-row">
+            <input type="text" id="new-location-name" placeholder="e.g. Closet shelf">
+            <input type="text" id="new-location-notes" placeholder="Notes (optional)">
+        </div>
+        <p class="modal-hint">Dimensions (optional):</p>
+        <div class="dimensions-row">
+            <input type="number" id="new-location-width" placeholder="Width">
+            <input type="number" id="new-location-height" placeholder="Height">
+            <input type="number" id="new-location-depth" placeholder="Depth">
+        </div>
+        <div class="modal-row">
+            <button onclick="handleCreateStorageLocation()">Add</button>
+        </div>
+    </section>
+
 </main>
 
 <script src="database.js"></script>

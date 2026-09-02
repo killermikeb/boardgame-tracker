@@ -1,4 +1,4 @@
-const CACHE_NAME = "boardgame-v10";
+const CACHE_NAME = "boardgame-v11";
 
 const FILES = [
     "./",
@@ -18,6 +18,7 @@ const FILES = [
     "./image-picker.js",
     "./date-picker.js",
     "./game-editor.js",
+    "./box-editor.js",
     "./manifest.json",
     "./images/default-game.jpg"
 ];

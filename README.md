@@ -52,18 +52,28 @@ a `systemd` service, or just `tmux`/`screen`. To run on a different port:
 All data is stored as plain JSON files under `data/`, created automatically
 on first run:
 - `data/profiles.json` — the list of profiles
-- `data/profile-<id>.json` — that profile's games and plays
-- `data/game-images/<profileId>/` — uploaded/downloaded cover images
+- `data/games.json`, `data/plays.json`, `data/boxes.json`,
+  `data/storage-locations.json` — the shared library: every profile sees the
+  same games, play history, boxes, and storage locations
+- `data/game-prefs.json` — each profile's own rating/favourite/archived for
+  each game
+- `data/game-images/` — uploaded/downloaded cover images, one per game
 
 Back this folder up however you'd back up any files on the Pi (there's no
 database to worry about).
+
+**Upgrading from an older version?** Games/plays used to live in a separate
+`data/profile-<id>.json` per profile, with rating/favourite/archived stored
+directly on the game record. `migrate-to-shared-library.js` converts old data
+to the new shape — see [Migrating old data](#migrating-old-data) below.
 
 ## Using the app
 
 - On first launch, go to **Settings** and enter your Pi's address (whatever
   the server printed on startup) and hit **Connect**.
 - Create a profile (e.g. your name) or pick an existing one. This downloads
-  that profile's games and plays onto the device.
+  the shared library (games, plays, boxes, storage locations — the same for
+  everyone) plus your own ratings/favourites/archived status.
 - Use the app as normal — add games, log plays, edit details.
 - Hit **Sync** (top right, next to your profile name) whenever you want to
   push local changes to the server and pull down anything added elsewhere.
@@ -99,48 +109,93 @@ down.
 Beyond name, description, and image, each game can have:
 - **Type** — Co-op or Versus
 - **Length** — 30 / 60 / 90 / 120 minutes
-- **Rating** — S / A / B / C / D / UP
 - **Tag** — a short freeform label, used by the search box on the main page
   (which matches against both name and tag)
-- **Archived** — marks a game as disposed of / thrown out. Archived games are
-  hidden from the main list by default; toggle "Show archived" in the
-  filters bar to see them.
 
-The main list is always sorted with favourites first, then alphabetically
-by name.
+Every game is shared — everyone using the same server sees the same title,
+description, image, type, length, and tags. **Rating, Favourite, and
+Archived are per-profile**, though: your rating of a game is yours alone,
+and doesn't affect what anyone else sees for that same shared game.
+- **Rating** — S / A / B / C / D / UP
+- **Archived** — marks a game as disposed of / thrown out, *from your
+  perspective*. Archived games are hidden from your main list by default;
+  toggle "Show archived" in the filters bar to see them. Another profile
+  sharing the same library can still see it as active.
+
+The main list is always sorted with your favourites first, then
+alphabetically by name.
+
+## Boxes and storage locations
+
+Each game can have one or more **boxes** — the core game's box, plus a
+separate box for each expansion — and each box can optionally be assigned to
+a **storage location** (e.g. "Closet shelf", "Attic bin"). Both boxes and
+storage locations can record width/height/depth, and a box can be flagged
+"must be stored flat" if it can't be rotated or stood on end. New games
+automatically get a default "Core Game" box.
+
+Storage locations are managed from **Settings**; boxes are managed from a
+game's detail page, under "Boxes" (enable edit mode to add/edit/delete).
+Both are shared across every profile, like the rest of the library.
 
 ## How syncing works (and its limits)
 
-Sync is intentionally simple: each game/play record has an `updatedAt`
-timestamp. When you sync, the server merges your local records with
-whatever it already has, keeping whichever copy of each record is newer,
-and sends the full merged result back.
+Sync is two calls, matching the shared/per-profile split in the data model:
+1. **Library sync** — games, plays, boxes, and storage locations, shared by
+   every profile. Each record has an `updatedAt` timestamp; the server merges
+   your local copies with whatever it already has, keeping whichever copy of
+   each record is newer, and sends the full merged result back.
+2. **Prefs sync** — your own rating/favourite/archived, merged the same way
+   but scoped to your profile only. Another profile syncing their own prefs
+   for the same game can never overwrite yours.
 
 Known limitations, so they don't surprise you:
-- **Deletions don't sync.** Deleting a game or play locally only removes it
-  from that device — if the server still has it, it'll come back on your
-  next sync. Full delete-tracking (tombstones) would be a reasonable next
-  step if this bites you.
-- **Only one profile's data lives on a device at a time.** Switching
-  profiles in Settings clears local data and re-downloads the selected
-  profile's data.
+- **Deletions don't sync.** Deleting a game, play, box, or storage location
+  locally only removes it from that device — if the server still has it,
+  it'll come back on your next sync. Since the library is shared, this now
+  affects everyone using the same server, not just one profile's private
+  copy. Full delete-tracking (tombstones) would be a reasonable next step if
+  this bites you.
+- **Only your own prefs live on a device at a time.** Switching profiles in
+  Settings re-downloads your prefs fresh; the shared library itself doesn't
+  need re-downloading, since it's the same for every profile.
 - **BoardGameGeek search uses lightweight XML parsing**, not a full parser —
   it works for typical searches but is a bit more fragile than a proper XML
   library would be if BGG changes their response format.
 
+## Migrating old data
+
+If `data/` still has the old `profile-<id>.json` layout (from before the
+shared library), run the migration once, with the server stopped:
+
+```
+node migrate-to-shared-library.js          # dry run — prints a report, writes nothing
+node migrate-to-shared-library.js --apply  # writes games.json, plays.json, game-prefs.json
+```
+
+Games with the exact same name across profiles are merged into one shared
+entry (each profile keeps its own rating/favourite/archived for it) — review
+the dry-run report before applying, since exact-name matching can occasionally
+merge two different games that happen to share a title. The original
+`profile-<id>.json` files are renamed to `.bak`, never deleted, so you can
+always undo by hand. Restart the server and check the app in a browser
+before removing any `.bak` files.
+
 ## File layout
 
 ```
-server.js            Run this on the Pi
+server.js                    Run this on the Pi
+migrate-to-shared-library.js  One-time migration from the old per-profile layout
 public/               The client app (HTML/CSS/JS), served by server.js
   index.html          Game list
-  game.html           Game detail + play history
-  settings.html        Server & profile setup
+  game.html           Game detail + play history + boxes
+  settings.html        Server, profile, & storage location setup
   database.js          IndexedDB (local storage) layer
   profile.js            Server URL / active profile config
-  sync.js                Push/pull logic
+  sync.js                Push/pull logic (library sync + prefs sync)
   image-picker.js         BGG search / URL / upload modal
+  box-editor.js            Add/edit a game's box modal
   nav.js                   Shared header, sync button
   service-worker.js       Offline caching
-data/                 Created automatically — profiles, games, plays, images
+data/                 Created automatically — profiles, shared library, prefs, images
 ```

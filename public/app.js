@@ -45,7 +45,7 @@ function typeLabel(type) {
 }
 
 async function loadGames() {
-    allGames = await getGames();
+    allGames = await getGamesWithPrefs();
     allPlays = await getPlays();
     populateTagFilterOptions();
     renderGames();
@@ -274,18 +274,19 @@ async function createGame() {
         id: uuid(),
         name: "",
         image: "images/default-game.jpg",
-        favourite: false,
-        archived: false,
         tags: [],
         created: new Date().toISOString()
     };
 
-    const created = await openGameEditor(blankGame, { title: "Add Game", existingGames: allGames });
-    if (!created) return null; // cancelled — nothing was saved
+    const result = await openGameEditor(blankGame, { title: "Add Game", existingGames: allGames });
+    if (!result) return null; // cancelled — nothing was saved
 
-    await addGame(created);
+    await addGame(result.game);
+    // New games start unfavourited — the editor never touches favourite, so it's set here.
+    await setGamePref(result.game.id, { ...result.prefs, favourite: false });
+    await addBox({ id: uuid(), gameId: result.game.id, storageLocationId: null, label: "Core Game", mustBeFlat: false });
     await loadGames();
-    return created;
+    return result.game;
 }
 
 async function recordPlay(gameId) {
@@ -327,12 +328,12 @@ function countLastMonth(plays, gameId) {
 }
 
 async function toggleFavourite(id) {
-    const games = await getGames();
-    const game = games.find(g => g.id === id);
-    if (!game) return;
-
-    game.favourite = !game.favourite;
-    await updateGame(game);
+    const current = (await getGamePref(id)) || { rating: null, favourite: false, archived: false };
+    await setGamePref(id, {
+        rating: current.rating,
+        archived: current.archived,
+        favourite: !current.favourite
+    });
     loadGames();
 }
 
