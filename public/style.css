@@ -488,12 +488,21 @@ button.secondary {
 }
 
 .row-thumb {
-	width: 32px;
-	height: 32px;
+	width: 44px;
+	height: 44px;
 	object-fit: cover;
 	border-radius: 6px;
 	vertical-align: middle;
-	margin-right: 8px;
+	margin-right: 12px;
+}
+
+.storage-box-info {
+	/* .history-item is a flex row with justify-content: space-between, meant to pin a
+	   content block against an actions block. This row has no actions block — wrapping
+	   everything here keeps it as the row's one flex item, so it stays left-aligned
+	   instead of getting spread out across the row. */
+	display: flex;
+	align-items: center;
 }
 
 .storage-location-block {
@@ -562,6 +571,15 @@ button.secondary {
 	display: grid;
 	grid-template-columns: 1fr 1fr 1fr;
 	gap: 12px;
+}
+
+.dimensions-row input {
+	/* Grid items default to a content-based min-width, which can force these number
+	   inputs wider than their column and overflow the parent — override it so they
+	   shrink to fit, both inside a .modal and on the plain Settings page form. */
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
 }
 
 .modal .checkbox-row {
