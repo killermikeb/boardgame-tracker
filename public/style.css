@@ -482,6 +482,36 @@ button.secondary {
 	color: white;
 }
 
+.badge-warning {
+	background: #d9534f;
+	color: white;
+}
+
+.row-thumb {
+	width: 32px;
+	height: 32px;
+	object-fit: cover;
+	border-radius: 6px;
+	vertical-align: middle;
+	margin-right: 8px;
+}
+
+.storage-location-block {
+	background: white;
+	border-radius: 15px;
+	padding: 15px 20px;
+	margin-bottom: 15px;
+}
+
+.storage-location-block h2 {
+	text-align: left;
+	margin-top: 0;
+}
+
+.clickable {
+	cursor: pointer;
+}
+
 .game-card.archived {
 	opacity: 0.6;
 }

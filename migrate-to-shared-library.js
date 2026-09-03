@@ -1,14 +1,16 @@
-// One-time migration: per-profile data silos -> shared library + per-profile prefs.
+// One-time migration: per-profile data silos -> shared library + per-profile prefs/plays.
 // ------------------------------------------------------------------------------------
 // Run by hand on the Pi, with the server stopped:
 //   node migrate-to-shared-library.js            (dry run — prints a report, writes nothing)
 //   node migrate-to-shared-library.js --apply     (writes the new shared files)
 //
 // Reads every data/profile-{id}.json (old shape: {games: [...], plays: [...]}, with
-// rating/favourite/archived on each game) and builds the new shared data/games.json,
-// data/plays.json, data/game-prefs.json, relocating cover images out of their
-// per-profile folders. Original profile-{id}.json files are renamed to .bak, never
-// deleted, so a bad migration can always be undone by hand.
+// rating/favourite/archived on each game) and builds the new data/games.json (shared),
+// data/plays.json (per-profile — each person's own play sessions, kept separate rather
+// than merged together), data/game-prefs.json (per-profile rating/favourite/archived),
+// and data/boxes.json (a default "Core Box" for every game), relocating cover images out
+// of their per-profile folders. Original profile-{id}.json files are renamed to .bak,
+// never deleted, so a bad migration can always be undone by hand.
 //
 // Games with an exact-match name (trimmed, case-insensitive) across profiles are
 // merged into a single shared record. This is a blunt heuristic — it can wrongly
@@ -18,6 +20,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const DATA_DIR = path.join(__dirname, "data");
 const GAME_IMAGES_DIR = path.join(DATA_DIR, "game-images");
@@ -43,8 +46,9 @@ function writeJSON(filePath, data) {
 }
 
 // Same last-write-wins union merge as server.js's mergeRecords — duplicated here (server.js
-// has no module.exports) as a belt-and-suspenders guard against id collisions across
-// profiles' play lists, which shouldn't happen with UUIDs but costs nothing to guard.
+// has no module.exports) as a belt-and-suspenders guard against duplicate ids within a
+// single profile's own play list, which shouldn't happen with UUIDs but costs nothing
+// to guard against.
 function mergeRecords(existing, incoming) {
     const byId = new Map();
     for (const record of existing) byId.set(record.id, record);
@@ -78,9 +82,11 @@ function main() {
     }
 
     // Load every profile's games/plays, tagging each in-memory game with its source
-    // profile so plays/prefs/images can be traced back after clustering.
+    // profile so prefs/images can be traced back after clustering. Plays stay bucketed
+    // by their owning profile — they were already per-profile before this migration and
+    // remain so, just with gameId remapped through any duplicate-game merge below.
     const allGames = []; // { ...game, sourceProfileId }
-    const allPlays = []; // raw play records, gameId not yet remapped
+    const playsByProfile = new Map(); // profileId -> raw play records, gameId not yet remapped
     const missingFiles = [];
 
     for (const profile of profiles) {
@@ -93,9 +99,7 @@ function main() {
         for (const game of data.games || []) {
             allGames.push({ ...game, sourceProfileId: profile.id });
         }
-        for (const play of data.plays || []) {
-            allPlays.push(play);
-        }
+        playsByProfile.set(profile.id, data.plays || []);
     }
 
     if (missingFiles.length) {
@@ -163,14 +167,34 @@ function main() {
         }
     }
 
-    // Remap plays to their survivor gameId, then dedupe by id.
-    const remappedPlays = mergeRecords(
-        [],
-        allPlays.map(play => ({
+    // Remap each profile's own plays to their survivor gameId, then dedupe by id within
+    // that profile — plays are NOT merged across profiles, since each person's play
+    // history is their own.
+    const playsFile = {}; // profileId -> play[]
+    let totalPlays = 0;
+    for (const [profileId, plays] of playsByProfile) {
+        const remapped = plays.map(play => ({
             ...play,
             gameId: oldGameIdToSurvivorId.get(play.gameId) || play.gameId
-        }))
-    );
+        }));
+        playsFile[profileId] = mergeRecords([], remapped);
+        totalPlays += playsFile[profileId].length;
+    }
+
+    // Every game gets a default "Core Box" — none of the old per-profile data had any
+    // concept of boxes, so this is the one entry every migrated game starts with.
+    const boxes = survivorGames.map(game => ({
+        id: crypto.randomUUID(),
+        gameId: game.id,
+        storageLocationId: null,
+        label: "Core Box",
+        width: null,
+        depth: null,
+        height: null,
+        mustBeFlat: false,
+        created: new Date().toISOString(),
+        updatedAt: Date.now()
+    }));
 
     // Build game-prefs.json: gameId -> profileId -> {rating, favourite, archived, updatedAt}.
     // Only games with a non-default rating/favourite/archived get an entry — matching the
@@ -220,8 +244,9 @@ function main() {
     console.log(`\n${APPLY ? "APPLYING" : "DRY RUN"} — shared-library migration\n${"=".repeat(60)}`);
     console.log(`Profiles: ${profiles.length}`);
     console.log(`Games read: ${allGames.length} -> ${survivorGames.length} after merging duplicates`);
-    console.log(`Plays: ${allPlays.length} -> ${remappedPlays.length} after dedup`);
+    console.log(`Plays: ${totalPlays} (kept per-profile — not merged across profiles)`);
     console.log(`Prefs rows carried forward: ${prefsWritten}`);
+    console.log(`Default "Core Box" entries to create: ${boxes.length}`);
     console.log(`Images to relocate: ${imageMoves.length}`);
 
     if (report.length) {
@@ -266,12 +291,12 @@ function main() {
     }
 
     writeJSON(GAMES_FILE, survivorGames);
-    writeJSON(PLAYS_FILE, remappedPlays);
+    writeJSON(PLAYS_FILE, playsFile);
     writeJSON(GAME_PREFS_FILE, gamePrefs);
+    writeJSON(BOXES_FILE, boxes);
     if (!fs.existsSync(STORAGE_LOCATIONS_FILE)) writeJSON(STORAGE_LOCATIONS_FILE, []);
-    if (!fs.existsSync(BOXES_FILE)) writeJSON(BOXES_FILE, []);
 
-    console.log(`\nWrote ${GAMES_FILE}, ${PLAYS_FILE}, ${GAME_PREFS_FILE}.`);
+    console.log(`\nWrote ${GAMES_FILE}, ${PLAYS_FILE}, ${GAME_PREFS_FILE}, ${BOXES_FILE}.`);
     console.log(`Relocated ${imageMoves.length} image(s) to ${GAME_IMAGES_DIR}.`);
     console.log(`Backed up ${backedUp.length} profile data file(s):`);
     backedUp.forEach(f => console.log(`  ${f}`));

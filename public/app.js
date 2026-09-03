@@ -284,7 +284,7 @@ async function createGame() {
     await addGame(result.game);
     // New games start unfavourited — the editor never touches favourite, so it's set here.
     await setGamePref(result.game.id, { ...result.prefs, favourite: false });
-    await addBox({ id: uuid(), gameId: result.game.id, storageLocationId: null, label: "Core Game", mustBeFlat: false });
+    await addBox({ id: uuid(), gameId: result.game.id, storageLocationId: null, label: "Core Box", mustBeFlat: false });
     await loadGames();
     return result.game;
 }

@@ -182,11 +182,11 @@ function deleteGame(id) {
 }
 
 // ---------- Game prefs (per-profile rating/favourite/archived) ----------
-// Games/plays/boxes/storage-locations are shared across every profile, but a profile's
+// Games/boxes/storage-locations are shared across every profile, but a profile's
 // opinion of a shared game — rating, favourite, archived — is theirs alone. Only the
 // active profile's own prefs ever live in this store; switching profiles clears it
-// (see clearGamePrefs) and syncs back down fresh, unlike games/plays/boxes/
-// storageLocations, which are identical for everyone and never need clearing.
+// (see clearGamePrefs) and syncs back down fresh, unlike games/boxes/storageLocations,
+// which are identical for everyone and never need clearing.
 
 function getGamePrefs() {
     return new Promise((resolve, reject) => {
@@ -339,6 +339,9 @@ function deleteStorageLocation(id) {
 }
 
 // ---------- Plays ----------
+// Each person records their own play sessions — plays are per-profile, not shared, so
+// (like gamePrefs) only the active profile's own plays ever live here. Switching
+// profiles clears this store (see clearPlays) and re-downloads fresh.
 
 function getPlays() {
     return new Promise((resolve, reject) => {
@@ -383,6 +386,15 @@ function deletePlayFromDatabase(id) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction("plays", "readwrite");
         tx.objectStore("plays").delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+function clearPlays() {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("plays", "readwrite");
+        tx.objectStore("plays").clear();
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
     });
@@ -506,13 +518,52 @@ function uuid() {
     });
 }
 
-// Renders a box/storage-location's width x height x depth for display, omitting
-// whichever dimensions weren't measured. Returns "" if none were.
+// Renders a box/storage-location's dimensions for display, in cm, always in the
+// order width, depth, height — omitting whichever weren't measured. Returns "" if
+// none were.
 function formatDimensions(record) {
-    const parts = [record.width, record.height, record.depth].filter(
+    const parts = [record.width, record.depth, record.height].filter(
         n => n !== null && n !== undefined && n !== ""
     );
-    return parts.length ? parts.join(" × ") : "";
+    return parts.length ? `${parts.join(" × ")} cm` : "";
+}
+
+// Whether a box could physically fit inside a storage location, given their measured
+// dimensions (all in cm). A box's width and depth can always swap (it can be turned
+// sideways), but its height only swaps too when it ISN'T flagged mustBeFlat — a box
+// that must be stored flat can't be stood up on end, so its height is fixed. Returns
+// true if there's no location, or either side is missing a measurement — nothing to
+// check in that case.
+function boxFitsLocation(box, location) {
+    if (!location) return true;
+
+    const boxDims = [box.width, box.depth, box.height];
+    const locDims = [location.width, location.depth, location.height];
+    if (
+        boxDims.some(n => n === null || n === undefined || n === "") ||
+        locDims.some(n => n === null || n === undefined || n === "")
+    ) {
+        return true;
+    }
+
+    const [w, d, h] = boxDims;
+    const orientations = box.mustBeFlat
+        ? [
+              [w, d, h],
+              [d, w, h]
+          ]
+        : [
+              [w, d, h],
+              [d, w, h],
+              [w, h, d],
+              [h, w, d],
+              [d, h, w],
+              [h, d, w]
+          ];
+
+    return orientations.some(
+        ([ow, od, oh]) => ow <= locDims[0] && od <= locDims[1] && oh <= locDims[2]
+    );
 }
 
 // Prevents user-entered text (game names, descriptions, dates typed via prompt)

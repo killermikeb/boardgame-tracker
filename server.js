@@ -36,7 +36,7 @@ if (!fs.existsSync(GAMES_FILE)) {
     fs.writeFileSync(GAMES_FILE, "[]");
 }
 if (!fs.existsSync(PLAYS_FILE)) {
-    fs.writeFileSync(PLAYS_FILE, "[]");
+    fs.writeFileSync(PLAYS_FILE, "{}");
 }
 if (!fs.existsSync(GAME_PREFS_FILE)) {
     fs.writeFileSync(GAME_PREFS_FILE, "{}");
@@ -78,12 +78,24 @@ function saveGames(games) {
     writeJSON(GAMES_FILE, games);
 }
 
-function getPlays() {
-    return readJSON(PLAYS_FILE, []);
+// plays.json is nested by profileId, like game-prefs.json — each person records their
+// own play sessions, so they're not part of the shared library. {profileId: [play, ...]}
+function getPlaysFile() {
+    return readJSON(PLAYS_FILE, {});
 }
 
-function savePlays(plays) {
+function savePlaysFile(plays) {
     writeJSON(PLAYS_FILE, plays);
+}
+
+function playsForProfile(playsFile, profileId) {
+    return playsFile[profileId] || [];
+}
+
+// Merges incoming plays into just this profile's own slice — never touches another
+// profile's plays, same isolation guarantee as mergePrefs.
+function mergePlays(playsFile, profileId, incoming) {
+    return { ...playsFile, [profileId]: mergeRecords(playsFile[profileId] || [], incoming || []) };
 }
 
 function getStorageLocations() {
@@ -118,7 +130,7 @@ function saveGamePrefs(prefs) {
 
 // Last-write-wins merge, keyed by record id, compared by updatedAt. Pure union — nothing
 // is ever removed by a sync, since deletions aren't part of the sync protocol (see
-// database.js's deleteGame/deleteBox/deleteStorageLocation). Now that games/plays/boxes/
+// database.js's deleteGame/deleteBox/deleteStorageLocation). Now that games/boxes/
 // storage-locations are shared across every profile, this gap means a delete on one
 // device can be silently undone by the next sync if another device still has the
 // record — a known, deferred limitation, not something introduced here.
@@ -430,47 +442,50 @@ async function handleCreateProfile(req, res) {
     sendJSON(res, 201, profile);
 }
 
-// Full download of the shared library (games/plays/boxes/storage-locations), used once
-// when a device first selects a profile.
+// Full download of the shared library (games/boxes/storage-locations — NOT plays, which
+// are per-profile), used once when a device first selects a profile.
 async function handleGetLibraryData(req, res) {
     sendJSON(res, 200, {
         games: getGames(),
-        plays: getPlays(),
         boxes: getBoxes(),
         storageLocations: getStorageLocations()
     });
 }
 
-// Shared-library sync: merges games/plays/boxes/storage-locations, not profile-scoped.
+// Shared-library sync: merges games/boxes/storage-locations, not profile-scoped.
 async function handleLibrarySync(req, res) {
     const body = JSON.parse((await readBody(req)) || "{}");
 
     const merged = {
         games: mergeRecords(getGames(), body.games || []),
-        plays: mergeRecords(getPlays(), body.plays || []),
         boxes: mergeRecords(getBoxes(), body.boxes || []),
         storageLocations: mergeRecords(getStorageLocations(), body.storageLocations || [])
     };
 
     saveGames(merged.games);
-    savePlays(merged.plays);
     saveBoxes(merged.boxes);
     saveStorageLocations(merged.storageLocations);
 
     sendJSON(res, 200, merged);
 }
 
-// This profile's own rating/favourite/archived slice.
+// This profile's own rating/favourite/archived slice, and this profile's own plays —
+// each person records their own play sessions, so plays live here rather than in the
+// shared library.
 async function handleGetProfileData(req, res, profileId) {
     const profiles = getProfiles();
     if (!profiles.some(p => p.id === profileId)) {
         return sendError(res, 404, "Profile not found");
     }
-    sendJSON(res, 200, { prefs: prefsForProfile(getGamePrefs(), profileId) });
+    sendJSON(res, 200, {
+        prefs: prefsForProfile(getGamePrefs(), profileId),
+        plays: playsForProfile(getPlaysFile(), profileId)
+    });
 }
 
-// Prefs-only sync for one profile: rating/favourite/archived, keyed by gameId. Never
-// touches another profile's prefs for the same game — see mergePrefs.
+// Prefs + plays sync for one profile: rating/favourite/archived keyed by gameId, plus
+// this profile's own play history. Never touches another profile's prefs or plays —
+// see mergePrefs/mergePlays.
 async function handleSyncProfile(req, res, profileId) {
     const profiles = getProfiles();
     if (!profiles.some(p => p.id === profileId)) {
@@ -478,10 +493,17 @@ async function handleSyncProfile(req, res, profileId) {
     }
 
     const body = JSON.parse((await readBody(req)) || "{}");
-    const merged = mergePrefs(getGamePrefs(), profileId, body.prefs || {});
 
-    saveGamePrefs(merged);
-    sendJSON(res, 200, { prefs: prefsForProfile(merged, profileId) });
+    const mergedPrefs = mergePrefs(getGamePrefs(), profileId, body.prefs || {});
+    saveGamePrefs(mergedPrefs);
+
+    const mergedPlays = mergePlays(getPlaysFile(), profileId, body.plays || []);
+    savePlaysFile(mergedPlays);
+
+    sendJSON(res, 200, {
+        prefs: prefsForProfile(mergedPrefs, profileId),
+        plays: playsForProfile(mergedPlays, profileId)
+    });
 }
 
 async function handleSaveImage(req, res, gameId) {

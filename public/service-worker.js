@@ -1,4 +1,4 @@
-const CACHE_NAME = "boardgame-v11";
+const CACHE_NAME = "boardgame-v12";
 
 const FILES = [
     "./",
@@ -6,11 +6,13 @@ const FILES = [
     "./game.html",
     "./settings.html",
     "./timeline.html",
+    "./storage.html",
     "./style.css",
     "./app.js",
     "./game.js",
     "./settings.js",
     "./timeline.js",
+    "./storage.js",
     "./database.js",
     "./profile.js",
     "./nav.js",

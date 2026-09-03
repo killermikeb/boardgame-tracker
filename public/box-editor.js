@@ -1,5 +1,5 @@
-// Modal form for adding/editing one of a game's storage boxes (the core game box,
-// or an expansion's own box). Resolves with { label, width, height, depth,
+// Modal form for adding/editing one of a game's storage boxes (the core box, or an
+// expansion's own box). Resolves with { label, width, depth, height,
 // storageLocationId, mustBeFlat }, or null if the user cancelled.
 async function openBoxEditor(box, storageLocations, opts = {}) {
     return new Promise(resolve => {
@@ -12,11 +12,11 @@ async function openBoxEditor(box, storageLocations, opts = {}) {
                 <label class="field-label">Label</label>
                 <input type="text" id="box-editor-label" value="${escapeHTML(box.label || "")}">
 
-                <p class="modal-hint">Dimensions (optional):</p>
+                <p class="modal-hint">Dimensions in cm (optional):</p>
                 <div class="dimensions-row">
-                    <input type="number" id="box-editor-width" placeholder="Width" value="${box.width ?? ""}">
-                    <input type="number" id="box-editor-height" placeholder="Height" value="${box.height ?? ""}">
-                    <input type="number" id="box-editor-depth" placeholder="Depth" value="${box.depth ?? ""}">
+                    <input type="number" id="box-editor-width" placeholder="Width (cm)" value="${box.width ?? ""}">
+                    <input type="number" id="box-editor-depth" placeholder="Depth (cm)" value="${box.depth ?? ""}">
+                    <input type="number" id="box-editor-height" placeholder="Height (cm)" value="${box.height ?? ""}">
                 </div>
 
                 <label class="field-label">Storage location</label>
@@ -32,7 +32,7 @@ async function openBoxEditor(box, storageLocations, opts = {}) {
 
                 <label class="checkbox-row">
                     <input type="checkbox" id="box-editor-flat" ${box.mustBeFlat ? "checked" : ""}>
-                    Must be stored flat (cannot be rotated or stood on end)
+                    Must be stored flat (height cannot interchange)
                 </label>
 
                 <div class="modal-actions">
@@ -61,19 +61,29 @@ async function openBoxEditor(box, storageLocations, opts = {}) {
             }
 
             const width = overlay.querySelector("#box-editor-width").value;
-            const height = overlay.querySelector("#box-editor-height").value;
             const depth = overlay.querySelector("#box-editor-depth").value;
+            const height = overlay.querySelector("#box-editor-height").value;
             const storageLocationId = overlay.querySelector("#box-editor-location").value || null;
             const mustBeFlat = overlay.querySelector("#box-editor-flat").checked;
 
-            close({
+            const result = {
                 label,
                 width: width ? Number(width) : null,
-                height: height ? Number(height) : null,
                 depth: depth ? Number(depth) : null,
+                height: height ? Number(height) : null,
                 storageLocationId,
                 mustBeFlat
-            });
+            };
+
+            const location = storageLocations.find(loc => loc.id === storageLocationId);
+            if (location && !boxFitsLocation(result, location)) {
+                const proceed = confirm(
+                    `This box's dimensions don't fit inside "${location.name}" based on what's on record. Save anyway?`
+                );
+                if (!proceed) return;
+            }
+
+            close(result);
         };
 
         overlay.querySelector("#box-editor-label").focus();

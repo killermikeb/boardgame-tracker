@@ -122,26 +122,35 @@ async function loadGame() {
 }
 
 async function renderBoxes() {
-    const [boxes, storageLocations] = await Promise.all([
+    let [boxes, storageLocations] = await Promise.all([
         getBoxesForGame(gameId),
         getStorageLocations()
     ]);
+
+    // Every game should always have at least its Core Box — lazily create one for any
+    // game that doesn't (e.g. migrated from before boxes existed).
+    if (boxes.length === 0) {
+        const coreBox = { id: uuid(), gameId, storageLocationId: null, label: "Core Box", mustBeFlat: false };
+        await addBox(coreBox);
+        boxes = [coreBox];
+    }
+
     const locationsById = new Map(storageLocations.map(loc => [loc.id, loc]));
 
-    const rows = boxes
+    document.getElementById("boxes").innerHTML = boxes
         .slice()
         .sort((a, b) => (a.label || "").localeCompare(b.label || "", undefined, { sensitivity: "base" }))
         .map(box => {
             const location = box.storageLocationId ? locationsById.get(box.storageLocationId) : null;
             const dims = formatDimensions(box);
+            const fits = boxFitsLocation(box, location);
             return `
                 <div class="history-item">
-                    <span>
-                        ${escapeHTML(box.label)}
-                        ${dims ? `<span class="modal-hint"> — ${escapeHTML(dims)}</span>` : ""}
-                        <span class="modal-hint"> · ${escapeHTML(location ? location.name : "Unassigned")}</span>
-                        ${box.mustBeFlat ? `<span class="badge badge-tag">Must store flat</span>` : ""}
-                    </span>
+                    ${escapeHTML(box.label)}
+                    ${dims ? ` — ${escapeHTML(dims)}` : ""}
+                    · ${escapeHTML(location ? location.name : "Unassigned")}
+                    ${box.mustBeFlat ? ` <span class="badge badge-tag">Must store flat</span>` : ""}
+                    ${!fits ? ` <span class="badge badge-warning">Doesn't fit here</span>` : ""}
                     ${
                         editMode
                             ? `<span class="history-actions">
@@ -153,11 +162,7 @@ async function renderBoxes() {
                 </div>
             `;
         })
-        .join("");
-
-    document.getElementById("boxes").innerHTML =
-        (rows || `<p class="modal-hint">No boxes yet.</p>`) +
-        (editMode ? `<button onclick="handleAddBox()">+ Add Box</button>` : "");
+        .join("") + (editMode ? `<button onclick="handleAddBox()">+ Add Box</button>` : "");
 }
 
 async function handleAddBox() {

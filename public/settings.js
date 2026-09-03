@@ -98,17 +98,17 @@ async function handleSelectProfile(id, name) {
     }
 
     try {
-        // Games/plays/boxes/storage-locations are shared across every profile, so they
-        // don't need clearing on switch — only this profile's own prefs do.
-        await clearGamePrefs();
-        const result = await downloadLibraryData();
-        await downloadProfilePrefs(id);
+        // Games/boxes/storage-locations are shared across every profile, so they don't
+        // need clearing on switch — only this profile's own prefs and plays do.
+        await Promise.all([clearGamePrefs(), clearPlays()]);
+        const libraryResult = await downloadLibraryData();
+        const profileResult = await downloadProfileData(id);
         setActiveProfile(id, name);
         setLastSync(new Date().toISOString());
         renderNav("settings");
         renderCurrentProfile();
         loadProfiles();
-        alert(`Signed in as "${name}" — downloaded ${result.games} games and ${result.plays} plays.`);
+        alert(`Signed in as "${name}" — downloaded ${libraryResult.games} games and ${profileResult.plays} plays.`);
     } catch (err) {
         alert(`Couldn't switch profiles: ${err.message}`);
     }
@@ -149,8 +149,8 @@ async function handleCreateStorageLocation() {
     const nameInput = document.getElementById("new-location-name");
     const notesInput = document.getElementById("new-location-notes");
     const widthInput = document.getElementById("new-location-width");
-    const heightInput = document.getElementById("new-location-height");
     const depthInput = document.getElementById("new-location-depth");
+    const heightInput = document.getElementById("new-location-height");
 
     const name = nameInput.value.trim();
     if (!name) return;
@@ -160,15 +160,15 @@ async function handleCreateStorageLocation() {
         name,
         notes: notesInput.value.trim(),
         width: widthInput.value ? Number(widthInput.value) : null,
-        height: heightInput.value ? Number(heightInput.value) : null,
-        depth: depthInput.value ? Number(depthInput.value) : null
+        depth: depthInput.value ? Number(depthInput.value) : null,
+        height: heightInput.value ? Number(heightInput.value) : null
     });
 
     nameInput.value = "";
     notesInput.value = "";
     widthInput.value = "";
-    heightInput.value = "";
     depthInput.value = "";
+    heightInput.value = "";
 
     loadStorageLocations();
 }
