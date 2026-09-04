@@ -33,6 +33,11 @@ const BOXES_FILE = path.join(DATA_DIR, "boxes.json");
 
 const APPLY = process.argv.includes("--apply");
 
+// Profiles whose data is intentionally excluded from migration (test/scratch data,
+// not real collections). Their profile-{id}.json is still backed up like everyone
+// else's, just never folded into the migrated games/plays/prefs.
+const IGNORED_PROFILE_NAMES = ["TEST"];
+
 function readJSON(filePath, fallback) {
     try {
         return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -85,14 +90,21 @@ function main() {
     // profile so prefs/images can be traced back after clustering. Plays stay bucketed
     // by their owning profile — they were already per-profile before this migration and
     // remain so, just with gameId remapped through any duplicate-game merge below.
+    const soloProfile = profiles.find(p => p.name === "SOLO");
+
     const allGames = []; // { ...game, sourceProfileId }
     const playsByProfile = new Map(); // profileId -> raw play records, gameId not yet remapped
     const missingFiles = [];
+    const ignoredProfiles = [];
 
     for (const profile of profiles) {
         const file = path.join(DATA_DIR, `profile-${profile.id}.json`);
         if (!fs.existsSync(file)) {
             missingFiles.push(file);
+            continue;
+        }
+        if (IGNORED_PROFILE_NAMES.includes(profile.name)) {
+            ignoredProfiles.push(profile.name);
             continue;
         }
         const data = readJSON(file, { games: [], plays: [] });
@@ -106,6 +118,9 @@ function main() {
         console.log(`Note: ${missingFiles.length} profile(s) had no data file (skipped):`);
         missingFiles.forEach(f => console.log(`  ${f}`));
     }
+    if (ignoredProfiles.length) {
+        console.log(`Note: ${ignoredProfiles.length} profile(s) excluded by name (data ignored): ${ignoredProfiles.join(", ")}`);
+    }
 
     // Cluster games by exact (trimmed, case-insensitive) name match.
     const clusters = new Map(); // nameKey -> game[]
@@ -118,6 +133,7 @@ function main() {
     const oldGameIdToSurvivorId = new Map();
     const survivorGames = []; // final games.json entries (shared fields only)
     const report = []; // per-cluster summary lines
+    let soloTaggedCount = 0;
 
     for (const [key, members] of clusters) {
         // Survivor = most-recently-updated member, matching the app's own LWW philosophy.
@@ -139,6 +155,16 @@ function main() {
                     mergedTags.push(tag);
                 }
             }
+        }
+
+        // Games that came from the "SOLO" profile get an explicit "SOLO" tag — the app
+        // pre-filters that profile's games list to this tag (see app.js), so the tag
+        // needs to exist on the shared game record, not just live implicitly in the
+        // profile that owns it.
+        if (soloProfile && members.some(g => g.sourceProfileId === soloProfile.id) && !seenTags.has("solo")) {
+            seenTags.add("solo");
+            mergedTags.push("SOLO");
+            soloTaggedCount++;
         }
 
         const minCreated = members
@@ -242,11 +268,16 @@ function main() {
     // ---------- Dry-run report (always printed) ----------
 
     console.log(`\n${APPLY ? "APPLYING" : "DRY RUN"} — shared-library migration\n${"=".repeat(60)}`);
-    console.log(`Profiles: ${profiles.length}`);
+    console.log(`Profiles: ${profiles.length}${ignoredProfiles.length ? ` (${ignoredProfiles.length} excluded: ${ignoredProfiles.join(", ")})` : ""}`);
     console.log(`Games read: ${allGames.length} -> ${survivorGames.length} after merging duplicates`);
     console.log(`Plays: ${totalPlays} (kept per-profile — not merged across profiles)`);
     console.log(`Prefs rows carried forward: ${prefsWritten}`);
     console.log(`Default "Core Box" entries to create: ${boxes.length}`);
+    console.log(
+        soloProfile
+            ? `"SOLO" tag added to ${soloTaggedCount} game(s) contributed by the SOLO profile`
+            : `No profile named "SOLO" found — no games tagged`
+    );
     console.log(`Images to relocate: ${imageMoves.length}`);
 
     if (report.length) {

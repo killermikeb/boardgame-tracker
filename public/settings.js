@@ -4,6 +4,7 @@ window.onload = async () => {
 
     document.getElementById("server-url").value = getServerUrl();
     renderCurrentProfile();
+    renderLocationMasterEdit();
     loadStorageLocations();
 
     if (getServerUrl()) {
@@ -108,6 +109,7 @@ async function handleSelectProfile(id, name) {
         renderNav("settings");
         renderCurrentProfile();
         loadProfiles();
+        loadStorageLocations();
         alert(`Signed in as "${name}" — downloaded ${libraryResult.games} games and ${profileResult.plays} plays.`);
     } catch (err) {
         alert(`Couldn't switch profiles: ${err.message}`);
@@ -117,6 +119,21 @@ async function handleSelectProfile(id, name) {
 // ---------- Storage locations ----------
 // Shared across every profile, stored locally like games/boxes and carried by the
 // same library sync — not fetched from the server directly.
+
+let locationEditMode = false;
+
+function toggleLocationEditMode() {
+    locationEditMode = !locationEditMode;
+    renderLocationMasterEdit();
+    document.getElementById("add-location-form").hidden = !locationEditMode;
+    loadStorageLocations();
+}
+
+function renderLocationMasterEdit() {
+    document.getElementById("location-master-edit").innerHTML = `
+        <button class="master-edit-btn" onclick="toggleLocationEditMode()">${locationEditMode ? "Done" : "Edit"}</button>
+    `;
+}
 
 async function loadStorageLocations() {
     const listEl = document.getElementById("storage-location-list");
@@ -138,11 +155,30 @@ async function loadStorageLocations() {
                         ${escapeHTML(loc.name)}
                         ${dims ? `<span class="modal-hint"> — ${escapeHTML(dims)}</span>` : ""}
                     </span>
-                    <button class="secondary" onclick="handleDeleteStorageLocation('${loc.id}')">Delete</button>
+                    ${
+                        locationEditMode
+                            ? `<span class="history-actions">
+                                   <button onclick="handleEditStorageLocation('${loc.id}')">Edit</button>
+                                   <button onclick="handleDeleteStorageLocation('${loc.id}')">Delete</button>
+                               </span>`
+                            : ""
+                    }
                 </div>
             `;
         })
         .join("");
+}
+
+async function handleEditStorageLocation(id) {
+    const locations = await getStorageLocations();
+    const location = locations.find(loc => loc.id === id);
+    if (!location) return;
+
+    const result = await openLocationEditor(location, { title: "Edit Storage Location" });
+    if (!result) return;
+
+    await updateStorageLocation({ ...location, ...result });
+    loadStorageLocations();
 }
 
 async function handleCreateStorageLocation() {

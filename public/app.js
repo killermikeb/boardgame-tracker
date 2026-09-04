@@ -14,6 +14,7 @@ window.onload = async () => {
     registerServiceWorker();
     await initDatabase();
     renderNav("home");
+    applySoloProfileDefaultFilter();
     await loadGames();
 
     // Close the tag filter dropdown when clicking anywhere outside it.
@@ -24,6 +25,18 @@ window.onload = async () => {
         }
     });
 };
+
+// The "SOLO" profile is a special case: it's used to track solo plays specifically,
+// so its games list starts pre-filtered to the "SOLO" tag (see
+// migrate-to-shared-library.js, which tags that profile's games this way on
+// migration). This only sets the initial filter — the user can still clear it
+// manually afterward, and it won't be reapplied for the rest of the session.
+function applySoloProfileDefaultFilter() {
+    const profile = getActiveProfile();
+    if (profile && profile.name === "SOLO" && !selectedTagFilters.includes("SOLO")) {
+        selectedTagFilters.push("SOLO");
+    }
+}
 
 // Called by nav.js after a successful sync so the list reflects any new data.
 function onSyncComplete() {

@@ -147,9 +147,10 @@ Every game always has at least its Core Box — new games get one
 automatically, and any older game without one gets it created the next time
 its detail page loads.
 
-Storage locations are managed from **Settings**; boxes are managed from a
-game's detail page, under "Boxes" (enable edit mode to add/edit/delete).
-Both are shared across every profile, like the rest of the library. The
+Storage locations are managed from **Settings** (enable edit mode there to
+add/edit/delete); boxes are managed from a game's detail page, under
+"Boxes" (same pattern — enable edit mode to add/edit/delete). Both are
+shared across every profile, like the rest of the library. The
 **Storage** page gives an overview of every storage location and the boxes
 in it (with a small game thumbnail and name for each), plus an "Unassigned"
 group for boxes not yet placed anywhere.
@@ -201,6 +202,26 @@ files are renamed to `.bak`, never deleted, so you can always undo by hand.
 Restart the server and check the app in a browser before removing any `.bak`
 files.
 
+Two profile names get special handling:
+- A profile named **TEST** is excluded entirely — its games/plays/prefs are
+  not migrated (its `profile-TEST.json` is still backed up like everyone
+  else's, just never folded into the shared data).
+- Any game contributed by a profile named **SOLO** gets an explicit `SOLO`
+  tag added, since the app pre-filters that profile's games list to it (see
+  below) — without the tag actually being on the shared game record, the
+  filter would have nothing to match.
+
+## The "SOLO" profile
+
+A profile named exactly **SOLO** is treated as a special case: its Games
+list starts pre-filtered to the `SOLO` tag (rather than showing everything),
+since that profile is meant to track solo plays specifically. This is just
+the *initial* filter on page load — clearing it (or picking different tags)
+works normally for the rest of that session. For this to do anything useful,
+games need an actual `SOLO` tag on them (added automatically for
+SOLO-profile games by the migration script, or added by hand when creating/
+editing a game).
+
 ## File layout
 
 ```
@@ -216,6 +237,7 @@ public/               The client app (HTML/CSS/JS), served by server.js
   sync.js                Push/pull logic (library sync + profile sync)
   image-picker.js         BGG search / URL / upload modal
   box-editor.js            Add/edit a game's box modal
+  location-editor.js        Edit a storage location modal
   nav.js                   Shared header, sync button
   service-worker.js       Offline caching
 data/                 Created automatically — profiles, shared library, per-profile
