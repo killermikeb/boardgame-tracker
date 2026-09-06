@@ -139,9 +139,9 @@ async function pickRemoteImage(overlay, gameId, url, close) {
     if (statusEl) statusEl.textContent = "Saving image…";
 
     try {
-        const result = await apiFetch(`/api/profiles/${getActiveProfile().id}/image`, {
+        const result = await apiFetch(`/api/games/${gameId}/image`, {
             method: "POST",
-            body: JSON.stringify({ gameId, url })
+            body: JSON.stringify({ url })
         });
         const fullUrl = getServerUrl() + result.image;
         await cacheImageLocally(gameId, fullUrl);
@@ -175,9 +175,9 @@ async function pickUploadedImage(overlay, gameId, file, close) {
     if (statusEl) statusEl.textContent = "Uploading image…";
 
     try {
-        const result = await apiFetch(`/api/profiles/${getActiveProfile().id}/image`, {
+        const result = await apiFetch(`/api/games/${gameId}/image`, {
             method: "POST",
-            body: JSON.stringify({ gameId, dataUrl })
+            body: JSON.stringify({ dataUrl })
         });
         // No imageSource here — the source was a local file, not a URL, so there's
         // nothing meaningful to record.

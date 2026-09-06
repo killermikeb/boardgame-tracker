@@ -20,7 +20,8 @@ h1, h2 {
 	margin-bottom: 20px;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="number"] {
 	flex: 1;
 	padding: 12px;
 	border-radius: 8px;
@@ -481,6 +482,45 @@ button.secondary {
 	color: white;
 }
 
+.badge-warning {
+	background: #d9534f;
+	color: white;
+}
+
+.row-thumb {
+	width: 44px;
+	height: 44px;
+	object-fit: cover;
+	border-radius: 6px;
+	vertical-align: middle;
+	margin-right: 12px;
+}
+
+.storage-box-info {
+	/* .history-item is a flex row with justify-content: space-between, meant to pin a
+	   content block against an actions block. This row has no actions block — wrapping
+	   everything here keeps it as the row's one flex item, so it stays left-aligned
+	   instead of getting spread out across the row. */
+	display: flex;
+	align-items: center;
+}
+
+.storage-location-block {
+	background: white;
+	border-radius: 15px;
+	padding: 15px 20px;
+	margin-bottom: 15px;
+}
+
+.storage-location-block h2 {
+	text-align: left;
+	margin-top: 0;
+}
+
+.clickable {
+	cursor: pointer;
+}
+
 .game-card.archived {
 	opacity: 0.6;
 }
@@ -506,6 +546,7 @@ button.secondary {
 
 .modal input[type="text"],
 .modal input[type="date"],
+.modal input[type="number"],
 .modal textarea,
 .modal select {
 	width: 100%;
@@ -524,6 +565,21 @@ button.secondary {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	gap: 12px;
+}
+
+.dimensions-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr 1fr;
+	gap: 12px;
+}
+
+.dimensions-row input {
+	/* Grid items default to a content-based min-width, which can force these number
+	   inputs wider than their column and overflow the parent — override it so they
+	   shrink to fit, both inside a .modal and on the plain Settings page form. */
+	width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
 }
 
 .modal .checkbox-row {

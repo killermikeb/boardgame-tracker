@@ -14,6 +14,7 @@ window.onload = async () => {
     registerServiceWorker();
     await initDatabase();
     renderNav("home");
+    applySoloProfileDefaultFilter();
     await loadGames();
 
     // Close the tag filter dropdown when clicking anywhere outside it.
@@ -24,6 +25,18 @@ window.onload = async () => {
         }
     });
 };
+
+// The "SOLO" profile is a special case: it's used to track solo plays specifically,
+// so its games list starts pre-filtered to the "SOLO" tag (see
+// migrate-to-shared-library.js, which tags that profile's games this way on
+// migration). This only sets the initial filter — the user can still clear it
+// manually afterward, and it won't be reapplied for the rest of the session.
+function applySoloProfileDefaultFilter() {
+    const profile = getActiveProfile();
+    if (profile && profile.name === "SOLO" && !selectedTagFilters.includes("SOLO")) {
+        selectedTagFilters.push("SOLO");
+    }
+}
 
 // Called by nav.js after a successful sync so the list reflects any new data.
 function onSyncComplete() {
@@ -45,7 +58,7 @@ function typeLabel(type) {
 }
 
 async function loadGames() {
-    allGames = await getGames();
+    allGames = await getGamesWithPrefs();
     allPlays = await getPlays();
     populateTagFilterOptions();
     renderGames();
@@ -274,18 +287,19 @@ async function createGame() {
         id: uuid(),
         name: "",
         image: "images/default-game.jpg",
-        favourite: false,
-        archived: false,
         tags: [],
         created: new Date().toISOString()
     };
 
-    const created = await openGameEditor(blankGame, { title: "Add Game", existingGames: allGames });
-    if (!created) return null; // cancelled — nothing was saved
+    const result = await openGameEditor(blankGame, { title: "Add Game", existingGames: allGames });
+    if (!result) return null; // cancelled — nothing was saved
 
-    await addGame(created);
+    await addGame(result.game);
+    // New games start unfavourited — the editor never touches favourite, so it's set here.
+    await setGamePref(result.game.id, { ...result.prefs, favourite: false });
+    await addBox({ id: uuid(), gameId: result.game.id, storageLocationId: null, label: "Core Box", mustBeFlat: false });
     await loadGames();
-    return created;
+    return result.game;
 }
 
 async function recordPlay(gameId) {
@@ -327,12 +341,12 @@ function countLastMonth(plays, gameId) {
 }
 
 async function toggleFavourite(id) {
-    const games = await getGames();
-    const game = games.find(g => g.id === id);
-    if (!game) return;
-
-    game.favourite = !game.favourite;
-    await updateGame(game);
+    const current = (await getGamePref(id)) || { rating: null, favourite: false, archived: false };
+    await setGamePref(id, {
+        rating: current.rating,
+        archived: current.archived,
+        favourite: !current.favourite
+    });
     loadGames();
 }
 

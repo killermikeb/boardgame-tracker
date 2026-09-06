@@ -4,6 +4,8 @@ window.onload = async () => {
 
     document.getElementById("server-url").value = getServerUrl();
     renderCurrentProfile();
+    renderLocationMasterEdit();
+    loadStorageLocations();
 
     if (getServerUrl()) {
         loadProfiles();
@@ -97,15 +99,120 @@ async function handleSelectProfile(id, name) {
     }
 
     try {
-        await clearAllData();
-        const result = await downloadProfileData(id);
+        // Games/boxes/storage-locations are shared across every profile, so they don't
+        // need clearing on switch — only this profile's own prefs and plays do.
+        await Promise.all([clearGamePrefs(), clearPlays()]);
+        const libraryResult = await downloadLibraryData();
+        const profileResult = await downloadProfileData(id);
         setActiveProfile(id, name);
         setLastSync(new Date().toISOString());
         renderNav("settings");
         renderCurrentProfile();
         loadProfiles();
-        alert(`Signed in as "${name}" — downloaded ${result.games} games and ${result.plays} plays.`);
+        loadStorageLocations();
+        alert(`Signed in as "${name}" — downloaded ${libraryResult.games} games and ${profileResult.plays} plays.`);
     } catch (err) {
         alert(`Couldn't switch profiles: ${err.message}`);
     }
+}
+
+// ---------- Storage locations ----------
+// Shared across every profile, stored locally like games/boxes and carried by the
+// same library sync — not fetched from the server directly.
+
+let locationEditMode = false;
+
+function toggleLocationEditMode() {
+    locationEditMode = !locationEditMode;
+    renderLocationMasterEdit();
+    document.getElementById("add-location-form").hidden = !locationEditMode;
+    loadStorageLocations();
+}
+
+function renderLocationMasterEdit() {
+    document.getElementById("location-master-edit").innerHTML = `
+        <button class="master-edit-btn" onclick="toggleLocationEditMode()">${locationEditMode ? "Done" : "Edit"}</button>
+    `;
+}
+
+async function loadStorageLocations() {
+    const listEl = document.getElementById("storage-location-list");
+    const locations = (await getStorageLocations()).sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+    );
+
+    if (locations.length === 0) {
+        listEl.innerHTML = `<p class="modal-hint">No storage locations yet — add one below.</p>`;
+        return;
+    }
+
+    listEl.innerHTML = locations
+        .map(loc => {
+            const dims = formatDimensions(loc);
+            return `
+                <div class="profile-row">
+                    <span>
+                        ${escapeHTML(loc.name)}
+                        ${dims ? `<span class="modal-hint"> — ${escapeHTML(dims)}</span>` : ""}
+                    </span>
+                    ${
+                        locationEditMode
+                            ? `<span class="history-actions">
+                                   <button onclick="handleEditStorageLocation('${loc.id}')">Edit</button>
+                                   <button onclick="handleDeleteStorageLocation('${loc.id}')">Delete</button>
+                               </span>`
+                            : ""
+                    }
+                </div>
+            `;
+        })
+        .join("");
+}
+
+async function handleEditStorageLocation(id) {
+    const locations = await getStorageLocations();
+    const location = locations.find(loc => loc.id === id);
+    if (!location) return;
+
+    const result = await openLocationEditor(location, { title: "Edit Storage Location" });
+    if (!result) return;
+
+    await updateStorageLocation({ ...location, ...result });
+    loadStorageLocations();
+}
+
+async function handleCreateStorageLocation() {
+    const nameInput = document.getElementById("new-location-name");
+    const notesInput = document.getElementById("new-location-notes");
+    const widthInput = document.getElementById("new-location-width");
+    const depthInput = document.getElementById("new-location-depth");
+    const heightInput = document.getElementById("new-location-height");
+
+    const name = nameInput.value.trim();
+    if (!name) return;
+
+    await addStorageLocation({
+        id: uuid(),
+        name,
+        notes: notesInput.value.trim(),
+        width: widthInput.value ? Number(widthInput.value) : null,
+        depth: depthInput.value ? Number(depthInput.value) : null,
+        height: heightInput.value ? Number(heightInput.value) : null
+    });
+
+    nameInput.value = "";
+    notesInput.value = "";
+    widthInput.value = "";
+    depthInput.value = "";
+    heightInput.value = "";
+
+    loadStorageLocations();
+}
+
+async function handleDeleteStorageLocation(id) {
+    if (!confirm("Delete this storage location? Any boxes stored there will become unassigned.")) {
+        return;
+    }
+    await deleteStorageLocation(id);
+    loadStorageLocations();
 }

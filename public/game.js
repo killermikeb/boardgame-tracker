@@ -37,7 +37,7 @@ function toggleEditMode() {
 }
 
 async function loadGame() {
-    const games = await getGames();
+    const games = await getGamesWithPrefs();
     const game = games.find(g => g.id === gameId);
 
     if (!game) {
@@ -117,6 +117,86 @@ async function loadGame() {
             `
         )
         .join("");
+
+    renderBoxes();
+}
+
+async function renderBoxes() {
+    let [boxes, storageLocations] = await Promise.all([
+        getBoxesForGame(gameId),
+        getStorageLocations()
+    ]);
+
+    // Every game should always have at least its Core Box — lazily create one for any
+    // game that doesn't (e.g. migrated from before boxes existed).
+    if (boxes.length === 0) {
+        const coreBox = { id: uuid(), gameId, storageLocationId: null, label: "Core Box", mustBeFlat: false };
+        await addBox(coreBox);
+        boxes = [coreBox];
+    }
+
+    const locationsById = new Map(storageLocations.map(loc => [loc.id, loc]));
+
+    document.getElementById("boxes").innerHTML = boxes
+        .slice()
+        .sort((a, b) => (a.label || "").localeCompare(b.label || "", undefined, { sensitivity: "base" }))
+        .map(box => {
+            const location = box.storageLocationId ? locationsById.get(box.storageLocationId) : null;
+            const dims = formatDimensions(box);
+            const fits = boxFitsLocation(box, location);
+            return `
+                <div class="history-item">
+                    ${escapeHTML(box.label)}
+                    ${dims ? ` — ${escapeHTML(dims)}` : ""}
+                    · ${escapeHTML(location ? location.name : "Unassigned")}
+                    ${box.mustBeFlat ? ` <span class="badge badge-tag">Must store flat</span>` : ""}
+                    ${!fits ? ` <span class="badge badge-warning">Doesn't fit here</span>` : ""}
+                    ${
+                        editMode
+                            ? `<span class="history-actions">
+                                   <button onclick="handleEditBox('${box.id}')">Edit</button>
+                                   <button onclick="handleDeleteBox('${box.id}')">Delete</button>
+                               </span>`
+                            : ""
+                    }
+                </div>
+            `;
+        })
+        .join("") + (editMode ? `<button onclick="handleAddBox()">+ Add Box</button>` : "");
+}
+
+async function handleAddBox() {
+    const storageLocations = await getStorageLocations();
+    const result = await openBoxEditor(
+        { label: "", storageLocationId: null, mustBeFlat: false },
+        storageLocations,
+        { title: "Add Box" }
+    );
+    if (!result) return;
+
+    await addBox({ id: uuid(), gameId, ...result });
+    renderBoxes();
+}
+
+async function handleEditBox(id) {
+    const [boxes, storageLocations] = await Promise.all([
+        getBoxesForGame(gameId),
+        getStorageLocations()
+    ]);
+    const box = boxes.find(b => b.id === id);
+    if (!box) return;
+
+    const result = await openBoxEditor(box, storageLocations, { title: "Edit Box" });
+    if (!result) return;
+
+    await updateBox({ ...box, ...result });
+    renderBoxes();
+}
+
+async function handleDeleteBox(id) {
+    if (!confirm("Delete this box?")) return;
+    await deleteBox(id);
+    renderBoxes();
 }
 
 async function addPlayForGame() {
@@ -145,14 +225,17 @@ async function deletePlay(id) {
 }
 
 async function openEditor() {
-    const games = await getGames();
+    const games = await getGamesWithPrefs();
     const game = games.find(g => g.id === gameId);
     if (!game) return;
 
-    const updated = await openGameEditor(game, { existingGames: games });
-    if (!updated) return;
+    const result = await openGameEditor(game, { existingGames: games });
+    if (!result) return;
 
-    await updateGame(updated);
+    await updateGame(result.game);
+    // Preserve favourite, which this editor never touches.
+    const existingPref = (await getGamePref(result.game.id)) || {};
+    await setGamePref(result.game.id, { ...existingPref, ...result.prefs });
     loadGame();
 }
 
