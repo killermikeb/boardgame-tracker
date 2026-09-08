@@ -12,9 +12,9 @@ async function syncNow() {
     if (!profile) throw new Error("No active profile.");
 
     const [games, boxes, storageLocations] = await Promise.all([
-        getGames(),
-        getBoxes(),
-        getStorageLocations()
+        getGamesForSync(),
+        getBoxesForSync(),
+        getStorageLocationsForSync()
     ]);
 
     const library = await apiFetch("/api/library/sync", {
@@ -35,10 +35,10 @@ async function syncNow() {
 
     return { games: library.games.length, plays: plays.length };
 }
-// TODO: sync local deletions to main server. Now that games/boxes/storage-locations are
-// shared across every profile, this gap matters more than it used to — a delete on one
-// device can be silently undone by the next sync if another device still has the
-// record. See mergeRecords in server.js.
+// Local deletions of games/boxes/storage locations are pushed here as tombstones —
+// see isTombstone/getGamesForSync in database.js and mergeRecords in server.js. Plays
+// are per-profile and never shared, so a deleted play has no tombstone to push; it's
+// simply gone from this device.
 
 // Full downloads used when first selecting a profile in Settings — the shared library
 // (same for every profile) plus this one profile's own prefs and plays.
