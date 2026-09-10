@@ -128,12 +128,15 @@ function saveGamePrefs(prefs) {
     writeJSON(GAME_PREFS_FILE, prefs);
 }
 
-// Last-write-wins merge, keyed by record id, compared by updatedAt. Pure union — nothing
-// is ever removed by a sync, since deletions aren't part of the sync protocol (see
-// database.js's deleteGame/deleteBox/deleteStorageLocation). Now that games/boxes/
-// storage-locations are shared across every profile, this gap means a delete on one
-// device can be silently undone by the next sync if another device still has the
-// record — a known, deferred limitation, not something introduced here.
+// Last-write-wins merge, keyed by record id, compared by updatedAt. A client-side
+// delete is sent here as a tombstone record (`{ id, deleted: true, updatedAt }` — see
+// database.js's deleteGame/deleteBox/deleteStorageLocation) rather than an omission, so
+// it merges like any other edit: it wins over a stale non-deleted copy with an older
+// updatedAt, and is included in what's sent back so every other device (and profile,
+// for games/boxes/storage-locations, which are shared) also drops the record on its
+// next sync. Tombstones are kept forever rather than garbage-collected — harmless
+// (the client filters them out of what it displays) but something to be aware of if
+// data/*.json size ever matters.
 function mergeRecords(existing, incoming) {
     const byId = new Map();
     for (const record of existing) byId.set(record.id, record);

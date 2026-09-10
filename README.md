@@ -166,13 +166,22 @@ Sync is two calls, matching the shared/per-profile split in the data model:
    sessions, merged the same way but scoped to your profile only. Another
    profile syncing their own prefs or plays can never overwrite yours.
 
+Deleting a game, box, or storage location writes a **tombstone** locally
+(the record's id plus `deleted: true` and a fresh `updatedAt`) instead of
+just removing it. A tombstone syncs like any other edit — it wins over a
+stale non-deleted copy on the next sync and propagates to every other
+device (and profile, since the library is shared), which is what actually
+makes the deletion stick. It's filtered out of what you see in the app;
+the server just keeps it in `games.json`/`boxes.json`/
+`storage-locations.json` indefinitely (nothing garbage-collects old
+tombstones yet).
+
 Known limitations, so they don't surprise you:
-- **Deletions don't sync.** Deleting a game, box, or storage location
-  locally only removes it from that device — if the server still has it,
-  it'll come back on your next sync. Since the library is shared, this now
-  affects everyone using the same server, not just one profile's private
-  copy. Full delete-tracking (tombstones) would be a reasonable next step if
-  this bites you.
+- **Play deletions don't sync.** Play sessions are per-profile and never
+  shared, so deleting one only removes it from that device — if the server
+  still has it (e.g. because you haven't synced since deleting it there,
+  or another device of yours does), it can come back on your next sync.
+  This doesn't affect other profiles, since they never see your plays.
 - **Only your own prefs and plays live on a device at a time.** Switching
   profiles in Settings re-downloads your prefs and plays fresh; the shared
   library itself doesn't need re-downloading, since it's the same for every

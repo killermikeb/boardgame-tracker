@@ -92,11 +92,29 @@ function initDatabase() {
 
 // ---------- Games ----------
 
+// Deleting a game/box/storage location writes a "tombstone" — the record's id plus
+// `deleted: true` and a fresh `updatedAt`, replacing its other fields — instead of
+// removing the row outright. A tombstone is just another version of the record as far
+// as the last-write-wins sync merge is concerned (see mergeRecords in server.js), so it
+// propagates to the server and every other device the same way an edit would, and wins
+// over any stale non-deleted copy with an older updatedAt. Everyday reads (getGames,
+// getBoxes, getStorageLocations, getBoxesForGame) filter tombstones out; sync.js uses
+// the ...ForSync variants below, which include them, so deletions actually get pushed.
+function isTombstone(record) {
+    return Boolean(record.deleted);
+}
+
 function getGames() {
+    return getGamesForSync().then(games => games.filter(g => !isTombstone(g)).map(migrateGameTags));
+}
+
+// Includes delete tombstones — used by sync.js so local deletions are pushed to the
+// server instead of silently staying local.
+function getGamesForSync() {
     return new Promise((resolve, reject) => {
         const tx = db.transaction("games", "readonly");
         const request = tx.objectStore("games").getAll();
-        request.onsuccess = () => resolve(request.result.map(migrateGameTags));
+        request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
     });
 }
@@ -156,15 +174,15 @@ function putGameRaw(game) {
     });
 }
 
-// Deletes a game and all of its associated plays locally.
-// Note: this does NOT propagate to the server on its own — deletions aren't part of
-// the sync protocol in this version, so a deleted game/play can reappear after a sync
-// if the server still has it. See server/README.md for details.
+// Tombstones a game (see isTombstone above) and hard-deletes all of its associated
+// plays locally. Plays are per-profile and never shared, so there's no tombstone to
+// propagate for them — this device's own play history for the game is just gone,
+// same as before.
 function deleteGame(id) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction(["games", "plays"], "readwrite");
 
-        tx.objectStore("games").delete(id);
+        tx.objectStore("games").put({ id, deleted: true, updatedAt: Date.now() });
 
         const playsIndex = tx.objectStore("plays").index("gameId");
         const cursorRequest = playsIndex.openCursor(IDBKeyRange.only(id));
@@ -236,6 +254,11 @@ function clearGamePrefs() {
 // dimensions and an optional storage location. Shared across every profile.
 
 function getBoxes() {
+    return getBoxesForSync().then(boxes => boxes.filter(b => !isTombstone(b)));
+}
+
+// Includes delete tombstones — see getGamesForSync above.
+function getBoxesForSync() {
     return new Promise((resolve, reject) => {
         const tx = db.transaction("boxes", "readonly");
         const request = tx.objectStore("boxes").getAll();
@@ -249,7 +272,7 @@ function getBoxesForGame(gameId) {
         const tx = db.transaction("boxes", "readonly");
         const index = tx.objectStore("boxes").index("gameId");
         const request = index.getAll(gameId);
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => resolve(request.result.filter(b => !isTombstone(b)));
         request.onerror = () => reject(request.error);
     });
 }
@@ -273,12 +296,12 @@ function putBoxRaw(box) {
     });
 }
 
-// Note: this does NOT propagate to the server on its own — see deleteGame's note above,
-// which applies equally here now that boxes are shared.
+// Tombstones the box (see isTombstone above) rather than deleting the row outright, so
+// the deletion propagates to the server and every other device on the next sync.
 function deleteBox(id) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction("boxes", "readwrite");
-        tx.objectStore("boxes").delete(id);
+        tx.objectStore("boxes").put({ id, deleted: true, updatedAt: Date.now() });
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
     });
@@ -287,6 +310,11 @@ function deleteBox(id) {
 // ---------- Storage locations ----------
 
 function getStorageLocations() {
+    return getStorageLocationsForSync().then(locations => locations.filter(l => !isTombstone(l)));
+}
+
+// Includes delete tombstones — see getGamesForSync above.
+function getStorageLocationsForSync() {
     return new Promise((resolve, reject) => {
         const tx = db.transaction("storageLocations", "readonly");
         const request = tx.objectStore("storageLocations").getAll();
@@ -316,11 +344,13 @@ function putStorageLocationRaw(location) {
 
 // Deleting a location doesn't delete the boxes stored there — a box without a location
 // is still meaningful ("not yet placed"), so this is a soft cascade: every box pointing
-// at this location gets unassigned rather than removed.
+// at this location gets unassigned rather than removed. The location itself is
+// tombstoned (see isTombstone above) rather than deleted outright, so the deletion
+// propagates to the server and every other device on the next sync.
 function deleteStorageLocation(id) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction(["storageLocations", "boxes"], "readwrite");
-        tx.objectStore("storageLocations").delete(id);
+        tx.objectStore("storageLocations").put({ id, deleted: true, updatedAt: Date.now() });
 
         const boxesIndex = tx.objectStore("boxes").index("storageLocationId");
         const cursorRequest = boxesIndex.openCursor(IDBKeyRange.only(id));
