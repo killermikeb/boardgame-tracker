@@ -205,6 +205,7 @@ main {
 	margin-right: 8px;
 }
 
+#boxes,
 #history {
 	max-width: 500px;
 	margin: 0 auto;
@@ -225,6 +226,8 @@ main {
     flex-direction: row;
     justify-content: space-evenly;
     align-items: center;
+    max-width: 500px;
+    margin: 0 auto;
 }
 
 /* ---------- Settings page ---------- */
