@@ -69,13 +69,19 @@ async function renderStorage() {
         }
     }
 
-    const byLabel = (a, b) => (a.label || "").localeCompare(b.label || "", undefined, { sensitivity: "base" });
+    // Sort by the game's name since that's the bold, primary text on each row —
+    // sorting by box label instead would look unsorted to anyone reading the page.
+    const byGameName = (a, b) => {
+        const nameA = gamesById.get(a.gameId)?.name || a.label || "";
+        const nameB = gamesById.get(b.gameId)?.name || b.label || "";
+        return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    };
 
     const locationBlocks = locations
         .slice()
         .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }))
         .map(location => {
-            const locBoxes = (boxesByLocationId.get(location.id) || []).sort(byLabel);
+            const locBoxes = (boxesByLocationId.get(location.id) || []).sort(byGameName);
             const dims = formatDimensions(location);
             return `
                 <div class="storage-location-block">
@@ -97,7 +103,7 @@ async function renderStorage() {
             ${
                 unassigned.length
                     ? unassigned
-                          .sort(byLabel)
+                          .sort(byGameName)
                           .map(box => renderBoxRow(box, gamesById.get(box.gameId), null))
                           .join("")
                     : `<p class="modal-hint">Every box is assigned to a storage location.</p>`
