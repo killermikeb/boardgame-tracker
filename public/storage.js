@@ -30,8 +30,8 @@ function renderBoxRow(box, game, location) {
                      alt="" onerror="handleImageError(this, '${game.id}')">
                 <strong>${escapeHTML(game.name)}</strong>
                 <span class="modal-hint"> — ${escapeHTML(box.label)}${dims ? `, ${escapeHTML(dims)}` : ""}</span>
-                ${box.mustBeFlat ? ` <span class="badge badge-tag">Flat</span>` : ""}
-                ${!fits ? ` <span class="badge badge-warning">Doesn't fit here</span>` : ""}
+                ${box.mustBeFlat ? ` <span class="badge badge-tag">Store flat</span>` : ""}
+                ${!fits ? ` <span class="badge badge-warning">Won't fit</span>` : ""}
             </span>
         </div>
     `;

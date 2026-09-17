@@ -151,8 +151,8 @@ async function renderBoxes() {
                     ${escapeHTML(box.label)}
                     ${dims ? ` — ${escapeHTML(dims)}` : ""}
                     · ${escapeHTML(location ? location.name : "Unassigned")}
-                    ${box.mustBeFlat ? ` <span class="badge badge-tag">Must store flat</span>` : ""}
-                    ${!fits ? ` <span class="badge badge-warning">Doesn't fit here</span>` : ""}
+                    ${box.mustBeFlat ? ` <span class="badge badge-tag">Store flat</span>` : ""}
+                    ${!fits ? ` <span class="badge badge-warning">Won't fit</span>` : ""}
                     ${
                         editMode
                             ? `<span class="history-actions">
