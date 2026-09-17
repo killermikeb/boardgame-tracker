@@ -23,6 +23,8 @@ async function openBoxEditor(box, storageLocations, opts = {}) {
                 <select id="box-editor-location">
                     <option value="">— Unassigned —</option>
                     ${storageLocations
+                        .slice()
+                        .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }))
                         .map(
                             loc =>
                                 `<option value="${loc.id}" ${box.storageLocationId === loc.id ? "selected" : ""}>${escapeHTML(loc.name)}</option>`
