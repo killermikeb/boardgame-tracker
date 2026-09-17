@@ -14,6 +14,13 @@ h1, h2 {
 	text-align: center;
 }
 
+.app-version {
+	text-align: center;
+	margin-top: -10px;
+	color: #888;
+	font-size: 0.75rem;
+}
+
 .add-game {
 	display: flex;
 	gap: 10px;

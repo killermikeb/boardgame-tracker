@@ -69,11 +69,15 @@ intentional (see README: "zero-dependency"). Development is edit-and-reload.
 
 ## Known Pitfalls / Recurring Errors
 
-- **Forgetting to bump `CACHE_NAME` in `service-worker.js`.** The service
-  worker caches every file in `public/` for offline use, keyed by
-  `CACHE_NAME` (currently `"boardgame-v8"`). Any change to a cached file (or
-  adding a new one to `FILES`) needs `CACHE_NAME` bumped, or returning users
-  keep getting stale cached files until the browser happens to notice.
+- **Forgetting to bump `APP_VERSION` in `version.js`.** The service worker
+  caches every file in `public/` for offline use, keyed by `CACHE_NAME`,
+  which `service-worker.js` derives from `APP_VERSION` (`"boardgame-v" +
+  APP_VERSION`) — the same value Settings displays. Any change to a cached
+  file (or adding a new one to `FILES`) needs `APP_VERSION` bumped (format
+  `1.xx`; only move to `2.x` for a deliberate breaking rework), or returning
+  users keep getting stale cached files until the browser happens to
+  notice. `manifest.json`'s `"version"` field can't import `version.js`
+  (plain JSON) — update it by hand to match.
 - **Tag/list sort order drifting between files.** The tag filter dropdown
   (`app.js`), game card badges (`app.js`, `game.js`), and the tag editor
   (`game-editor.js`) each render sorted tag lists independently. A past fix
