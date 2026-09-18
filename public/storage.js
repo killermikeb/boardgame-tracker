@@ -27,11 +27,11 @@ function renderBoxRow(box, game, location) {
         <div class="history-item clickable" onclick="openGame('${game.id}')">
             <span class="storage-box-info">
                 <img class="row-thumb" src="${escapeHTML(game.image || 'images/default-game.jpg')}"
-                     alt="" onerror="this.src='images/default-game.jpg'">
+                     alt="" onerror="handleImageError(this, '${game.id}')">
                 <strong>${escapeHTML(game.name)}</strong>
                 <span class="modal-hint"> — ${escapeHTML(box.label)}${dims ? `, ${escapeHTML(dims)}` : ""}</span>
-                ${box.mustBeFlat ? ` <span class="badge badge-tag">Flat</span>` : ""}
-                ${!fits ? ` <span class="badge badge-warning">Doesn't fit here</span>` : ""}
+                ${box.mustBeFlat ? ` <span class="badge badge-tag">Store flat</span>` : ""}
+                ${!fits ? ` <span class="badge badge-warning">Won't fit</span>` : ""}
             </span>
         </div>
     `;

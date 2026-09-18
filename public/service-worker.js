@@ -1,4 +1,8 @@
-const CACHE_NAME = "boardgame-v16";
+// Pulls in APP_VERSION so the cache name always matches the version shown in
+// Settings — see version.js.
+importScripts("./version.js");
+
+const CACHE_NAME = "boardgame-v" + APP_VERSION;
 
 const FILES = [
     "./",
@@ -8,6 +12,7 @@ const FILES = [
     "./timeline.html",
     "./storage.html",
     "./style.css",
+    "./version.js",
     "./app.js",
     "./game.js",
     "./settings.js",

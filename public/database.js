@@ -277,6 +277,20 @@ function getBoxesForGame(gameId) {
     });
 }
 
+// Includes delete tombstones, unlike getBoxesForGame — lets callers tell "this game
+// never had a box" (safe to lazily create a Core Box) apart from "every box was
+// deleted on purpose" (see deleteBox: it keeps gameId on the tombstone just so this
+// lookup still finds it).
+function gameHasAnyBoxRecord(gameId) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction("boxes", "readonly");
+        const index = tx.objectStore("boxes").index("gameId");
+        const request = index.getAll(gameId);
+        request.onsuccess = () => resolve(request.result.length > 0);
+        request.onerror = () => reject(request.error);
+    });
+}
+
 function addBox(box) {
     box.updatedAt = Date.now();
     return putBoxRaw(box);
@@ -297,11 +311,13 @@ function putBoxRaw(box) {
 }
 
 // Tombstones the box (see isTombstone above) rather than deleting the row outright, so
-// the deletion propagates to the server and every other device on the next sync.
-function deleteBox(id) {
+// the deletion propagates to the server and every other device on the next sync. Keeps
+// gameId (unlike deleteGame/deleteStorageLocation's tombstones) so gameHasAnyBoxRecord
+// can still find it via the gameId index and knows not to recreate a deleted Core Box.
+function deleteBox(id, gameId) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction("boxes", "readwrite");
-        tx.objectStore("boxes").put({ id, deleted: true, updatedAt: Date.now() });
+        tx.objectStore("boxes").put({ id, gameId, deleted: true, updatedAt: Date.now() });
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
     });

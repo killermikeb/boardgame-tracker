@@ -2,6 +2,7 @@ window.onload = async () => {
     await initDatabase();
     renderNav("settings");
 
+    document.getElementById("app-version").textContent = `v${APP_VERSION}`;
     document.getElementById("server-url").value = getServerUrl();
     renderCurrentProfile();
     renderLocationMasterEdit();

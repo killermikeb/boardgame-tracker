@@ -128,8 +128,10 @@ async function renderBoxes() {
     ]);
 
     // Every game should always have at least its Core Box — lazily create one for any
-    // game that doesn't (e.g. migrated from before boxes existed).
-    if (boxes.length === 0) {
+    // game that never had one (e.g. migrated from before boxes existed). Games where the
+    // user deleted every box on purpose (game thrown out, copy sold) stay empty instead
+    // of getting a Core Box back on every render.
+    if (boxes.length === 0 && !(await gameHasAnyBoxRecord(gameId))) {
         const coreBox = { id: uuid(), gameId, storageLocationId: null, label: "Core Box", mustBeFlat: false };
         await addBox(coreBox);
         boxes = [coreBox];
@@ -149,8 +151,8 @@ async function renderBoxes() {
                     ${escapeHTML(box.label)}
                     ${dims ? ` — ${escapeHTML(dims)}` : ""}
                     · ${escapeHTML(location ? location.name : "Unassigned")}
-                    ${box.mustBeFlat ? ` <span class="badge badge-tag">Must store flat</span>` : ""}
-                    ${!fits ? ` <span class="badge badge-warning">Doesn't fit here</span>` : ""}
+                    ${box.mustBeFlat ? ` <span class="badge badge-tag">Store flat</span>` : ""}
+                    ${!fits ? ` <span class="badge badge-warning">Won't fit</span>` : ""}
                     ${
                         editMode
                             ? `<span class="history-actions">
@@ -195,7 +197,7 @@ async function handleEditBox(id) {
 
 async function handleDeleteBox(id) {
     if (!confirm("Delete this box?")) return;
-    await deleteBox(id);
+    await deleteBox(id, gameId);
     renderBoxes();
 }
 
