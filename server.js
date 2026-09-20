@@ -51,15 +51,65 @@ if (!fs.existsSync(BOXES_FILE)) {
 // ---------- Small storage helpers (flat JSON files — plenty for a home hobby server) ----------
 
 function readJSON(filePath, fallback) {
+    let raw;
     try {
-        return JSON.parse(fs.readFileSync(filePath, "utf8"));
+        raw = fs.readFileSync(filePath, "utf8");
     } catch (err) {
-        return fallback;
+        if (err.code === "ENOENT") return fallback; // no file yet — legitimate first run
+        throw err;
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch (err) {
+        // The file exists but isn't valid JSON — a corrupted write or a bad manual edit.
+        // Every caller here feeds a last-write-wins merge (mergeRecords/mergePrefs), so
+        // silently falling back to "empty" would make a client's stale sync look like the
+        // only truth and wipe out everything actually on disk. Fail loudly instead — the
+        // request handlers' top-level try/catch turns this into a 500 rather than data loss.
+        throw new Error(`${filePath} contains invalid JSON and could not be read: ${err.message}`);
     }
 }
 
 function writeJSON(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// Checked once at startup so a corrupted data file is caught immediately, with a clear
+// message naming the exact file — rather than discovered later as a cryptic 500 on
+// whichever API route happens to touch it first (or, before readJSON's fix above, as a
+// silent wipe of that file's data on the next sync).
+function validateDataFilesOrExit() {
+    const expectations = [
+        { file: PROFILES_FILE, isValid: Array.isArray },
+        { file: GAMES_FILE, isValid: Array.isArray },
+        { file: PLAYS_FILE, isValid: v => v !== null && typeof v === "object" && !Array.isArray(v) },
+        { file: GAME_PREFS_FILE, isValid: v => v !== null && typeof v === "object" && !Array.isArray(v) },
+        { file: STORAGE_LOCATIONS_FILE, isValid: Array.isArray },
+        { file: BOXES_FILE, isValid: Array.isArray }
+    ];
+
+    const problems = [];
+    for (const { file, isValid } of expectations) {
+        try {
+            const data = readJSON(file, undefined);
+            if (!isValid(data)) {
+                problems.push(`${file}: valid JSON but not the expected shape`);
+            }
+        } catch (err) {
+            problems.push(err.message);
+        }
+    }
+
+    if (problems.length) {
+        console.error("Refusing to start — problem(s) found in data/:");
+        for (const problem of problems) console.error(`  ${problem}`);
+        console.error(
+            "\nFix or restore the file(s) above from a backup, then restart. Starting with a " +
+                "corrupted data file risks a client's stale sync overwriting what's still good on disk."
+        );
+        process.exit(1);
+    }
 }
 
 function getProfiles() {
@@ -617,6 +667,8 @@ const server = http.createServer(async (req, res) => {
         sendError(res, 500, err.message || "Internal server error");
     }
 });
+
+validateDataFilesOrExit();
 
 server.listen(PORT, () => {
     console.log(`Board Game Tracker server running on port ${PORT}\n`);
