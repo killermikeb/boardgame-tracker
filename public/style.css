@@ -119,6 +119,7 @@ main {
 .game-info {
 	flex: 2;
 	min-width: 0;
+	max-width: 260px;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
@@ -152,13 +153,31 @@ main {
 .value-tile {
 	flex: 1;
 	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	text-align: center;
 	border-radius: 10px;
-	padding: 12px 4px;
-	font-size: 15px;
+	padding: 12px 3px;
+	font-size: 13px;
 	font-weight: 800;
 	line-height: 1;
 	color: white;
+}
+
+.value-number {
+	font-size: 13px;
+	font-weight: 800;
+	line-height: 1;
+}
+
+.value-unit {
+	margin-top: 3px;
+	font-size: 8.5px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	opacity: 0.75;
 }
 
 .fav-tile {
@@ -983,6 +1002,8 @@ button.secondary {
 
 	.game-info {
 		flex: none;
+		width: 100%;
+		align-self: center;
 	}
 
 	.nav-bar {

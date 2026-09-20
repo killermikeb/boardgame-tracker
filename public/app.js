@@ -257,7 +257,7 @@ function renderGames() {
 
                     <div class="tile-row">
 						${game.type ? `<span class="value-tile badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
-						${game.length ? `<span class="value-tile badge-length-${escapeHTML(game.length)}">${escapeHTML(game.length)} min</span>` : ""}
+						${game.length ? `<div class="value-tile badge-length-${escapeHTML(game.length)}"><div class="value-number">${escapeHTML(game.length)}</div><div class="value-unit">min</div></div>` : ""}
                     </div>
 
                     <div class="tile-row">

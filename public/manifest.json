@@ -6,7 +6,7 @@
     "background_color": "#ffffff",
     "theme_color": "#222222",
     "description": "Track your board game plays",
-    "version": "1.23",
+    "version": "1.24",
     "icons": [
         {
             "src": "icons/icon-192.png",

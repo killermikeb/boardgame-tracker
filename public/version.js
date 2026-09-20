@@ -4,4 +4,4 @@
 // Format is 1.xx: bump xx for a normal change, move to 2.x only for a rework big
 // enough to want a clean break. manifest.json's "version"/"version_name" fields can't
 // import this (plain JSON), so keep those in sync with this value by hand.
-const APP_VERSION = "1.23";
+const APP_VERSION = "1.24";
