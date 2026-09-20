@@ -227,6 +227,8 @@ function renderGames() {
         const div = document.createElement("div");
         div.className = "game-card" + (game.archived ? " archived" : "");
 
+        const thisMonthCount = countThisMonth(allPlays, game.id);
+
         div.innerHTML = `
             <div class="game-image" onclick="openGame('${game.id}')">
                 <img
@@ -234,35 +236,50 @@ function renderGames() {
                     alt="${escapeHTML(game.name)} box art"
                     onerror="handleImageError(this, '${game.id}')"
                 >
+                ${game.archived ? `<span class="archived-tag">Archived</span>` : ""}
             </div>
 
             <div class="game-info">
 
-                <h3>${escapeHTML(game.name)}</h3>
+                <div class="game-title-row">
+                    <h3 onclick="openGame('${game.id}')">${escapeHTML(game.name)}</h3>
+                    <button
+                        class="favourite-btn${game.favourite ? " active" : ""}"
+                        onclick="toggleFavourite('${game.id}')"
+                        aria-label="${game.favourite ? 'Remove from favourites' : 'Add to favourites'}"
+                    >${game.favourite ? "★" : "☆"}</button>
+                </div>
+
                 <div class="card-badges">
 					${game.type ? `<span class="badge badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
 					${game.length ? `<span class="badge badge-length-${escapeHTML(game.length)}">${escapeHTML(game.length)} min</span>` : ""}
                     ${game.rating ? `<span class="badge badge-rating-${escapeHTML(game.rating)}">${escapeHTML(game.rating)}</span>` : ""}
-                    ${(game.tags || [])
-                        .slice()
-                        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-                        .map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`)
-                        .join("")}
-                    ${game.archived ? `<span class="badge badge-archived">Archived</span>` : ""}
                 </div>
 
-                <p>Total: ${countSessions(allPlays, game.id)}</p>
-                <p>Last month: ${countLastMonth(allPlays, game.id)}</p>
-                <p>This month: ${countThisMonth(allPlays, game.id)}</p>
+                <div class="stat-row">
+                    <div class="stat-tile">
+                        <div class="stat-number">${countSessions(allPlays, game.id)}</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-number">${countLastMonth(allPlays, game.id)}</div>
+                        <div class="stat-label">Last mo.</div>
+                    </div>
+                    <div class="stat-tile${thisMonthCount > 0 ? " stat-tile-active" : ""}">
+                        <div class="stat-number">${thisMonthCount}</div>
+                        <div class="stat-label">This mo.</div>
+                    </div>
+                    <button class="log-play-btn" onclick="recordPlay('${game.id}')" aria-label="Log a play">+</button>
+                </div>
 
-				<div class="game-buttons">
-					<button
-						onclick="toggleFavourite('${game.id}')"
-						aria-label="${game.favourite ? 'Remove from favourites' : 'Add to favourites'}"
-					>${game.favourite ? "★" : "☆"}</button>
-					<button onclick="recordPlay('${game.id}')">+</button>
-				</div>
+            </div>
 
+            <div class="card-tags">
+                ${(game.tags || [])
+                    .slice()
+                    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+                    .map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`)
+                    .join("")}
             </div>
         `;
 

@@ -54,60 +54,161 @@ main {
 
 .game-card {
 	display: flex;
+	flex-direction: column;
 	background: white;
-	padding: 10px;
-	border-radius: 15px;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-	gap: 15px;
+	padding: 16px;
+	border-radius: 18px;
+	box-shadow: 0 4px 16px rgba(15,23,42,0.09);
 }
 
 .game-image {
-	flex: 3;
+	position: relative;
+	width: 100%;
+	height: 170px;
+	border-radius: 12px;
+	overflow: hidden;
 	cursor: pointer;
-	align-content: center;
+	background: #eef0f3;
 }
 
 .game-image img {
-	object-fit: contain;
-	max-height: 200px;
 	width: 100%;
-	border-radius: 10px;
+	height: 100%;
+	object-fit: contain;
+	display: block;
 }
 
-.game-title {
-	font-size: 1.3rem;
-	font-weight: bold;
-	margin-bottom: 10px;
-}
-
-.play-count {
-	color: #555;
-	margin-bottom: 15px;
+.archived-tag {
+	position: absolute;
+	left: 8px;
+	bottom: 8px;
+	background: rgba(20,22,26,0.72);
+	color: white;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 3px 7px;
+	border-radius: 6px;
 }
 
 .game-info {
-	flex: 2;
+	margin-top: 12px;
 }
 
-.game-info h3 {
-	margin-top: 0;
-	margin-bottom: 10px;
-}
-
-.game-info p {
-	margin-top: 4px;
-	margin-bottom: 4px;
-}
-
-.game-buttons {
+.game-title-row {
 	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px;
 }
 
-.game-buttons button {
+.game-title-row h3 {
+	margin: 0;
+	font-size: 17px;
+	font-weight: 800;
+	color: #14161b;
+	letter-spacing: -0.01em;
+	line-height: 1.25;
+	cursor: pointer;
+}
+
+.favourite-btn {
+	flex-shrink: 0;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	border: none;
+	border-radius: 999px;
+	background: #f5f6f8;
+	box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	line-height: 1;
+	cursor: pointer;
+	color: #9aa0a8;
+}
+
+.favourite-btn.active {
+	color: #f5a623;
+}
+
+.stat-row {
+	display: flex;
+	gap: 6px;
+	align-items: stretch;
+	margin-top: 12px;
+}
+
+.stat-tile {
 	flex: 1;
-	margin: 4px 8px;
-	padding: 6px 12px;
-	font-size: 1.3rem;
+	min-width: 0;
+	text-align: center;
+	border-radius: 10px;
+	padding: 8px 2px;
+	background: #f5f6f8;
+}
+
+.stat-tile.stat-tile-active {
+	background: #eaf3ff;
+}
+
+.stat-number {
+	font-size: 18px;
+	font-weight: 800;
+	line-height: 1;
+	color: #334155;
+}
+
+.stat-tile-active .stat-number {
+	color: #1d78d6;
+}
+
+.stat-label {
+	margin-top: 3px;
+	font-size: 8.5px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: #8b93a1;
+}
+
+.stat-tile-active .stat-label {
+	color: #5b8fc9;
+}
+
+.log-play-btn {
+	flex-shrink: 0;
+	width: 36px;
+	padding: 0;
+	border: none;
+	border-radius: 10px;
+	background: #1d78d6;
+	color: white;
+	font-weight: 800;
+	font-size: 1.1rem;
+	line-height: 1;
+	cursor: pointer;
+	box-shadow: 0 2px 6px rgba(29,120,214,0.35);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.log-play-btn:hover {
+	background: #175fac;
+}
+
+.card-tags {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 5px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid #eef1f4;
 }
 
 
@@ -387,9 +488,14 @@ button.secondary {
 /* ---------- Card / detail badges ---------- */
 .card-badges {
 	display: flex;
-	gap: 4px;
+	gap: 5px;
 	flex-wrap: wrap;
-	margin-bottom: 8px;
+	margin-top: 6px;
+}
+
+.card-badges .badge {
+	font-size: 0.75rem;
+	padding: 3px 9px;
 }
 
 .detail-badges {
@@ -836,17 +942,6 @@ button.secondary {
 	   instead of fitting the screen — one full-width column avoids that. */
 	#games {
 		grid-template-columns: 1fr;
-	}
-
-	/* Side-by-side image + info squeezes the text column down to a sliver at
-	   phone widths; stacking the image above the info gives the text its own
-	   full-width row instead. */
-	.game-card {
-		flex-direction: column;
-	}
-
-	.game-image img {
-		max-height: 240px;
 	}
 
 	.nav-bar {
