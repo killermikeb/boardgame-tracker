@@ -75,6 +75,43 @@ function writeJSON(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+// Checked once at startup so a corrupted data file is caught immediately, with a clear
+// message naming the exact file — rather than discovered later as a cryptic 500 on
+// whichever API route happens to touch it first (or, before readJSON's fix above, as a
+// silent wipe of that file's data on the next sync).
+function validateDataFilesOrExit() {
+    const expectations = [
+        { file: PROFILES_FILE, isValid: Array.isArray },
+        { file: GAMES_FILE, isValid: Array.isArray },
+        { file: PLAYS_FILE, isValid: v => v !== null && typeof v === "object" && !Array.isArray(v) },
+        { file: GAME_PREFS_FILE, isValid: v => v !== null && typeof v === "object" && !Array.isArray(v) },
+        { file: STORAGE_LOCATIONS_FILE, isValid: Array.isArray },
+        { file: BOXES_FILE, isValid: Array.isArray }
+    ];
+
+    const problems = [];
+    for (const { file, isValid } of expectations) {
+        try {
+            const data = readJSON(file, undefined);
+            if (!isValid(data)) {
+                problems.push(`${file}: valid JSON but not the expected shape`);
+            }
+        } catch (err) {
+            problems.push(err.message);
+        }
+    }
+
+    if (problems.length) {
+        console.error("Refusing to start — problem(s) found in data/:");
+        for (const problem of problems) console.error(`  ${problem}`);
+        console.error(
+            "\nFix or restore the file(s) above from a backup, then restart. Starting with a " +
+                "corrupted data file risks a client's stale sync overwriting what's still good on disk."
+        );
+        process.exit(1);
+    }
+}
+
 function getProfiles() {
     return readJSON(PROFILES_FILE, []);
 }
@@ -630,6 +667,8 @@ const server = http.createServer(async (req, res) => {
         sendError(res, 500, err.message || "Internal server error");
     }
 });
+
+validateDataFilesOrExit();
 
 server.listen(PORT, () => {
     console.log(`Board Game Tracker server running on port ${PORT}\n`);
