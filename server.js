@@ -51,10 +51,23 @@ if (!fs.existsSync(BOXES_FILE)) {
 // ---------- Small storage helpers (flat JSON files — plenty for a home hobby server) ----------
 
 function readJSON(filePath, fallback) {
+    let raw;
     try {
-        return JSON.parse(fs.readFileSync(filePath, "utf8"));
+        raw = fs.readFileSync(filePath, "utf8");
     } catch (err) {
-        return fallback;
+        if (err.code === "ENOENT") return fallback; // no file yet — legitimate first run
+        throw err;
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch (err) {
+        // The file exists but isn't valid JSON — a corrupted write or a bad manual edit.
+        // Every caller here feeds a last-write-wins merge (mergeRecords/mergePrefs), so
+        // silently falling back to "empty" would make a client's stale sync look like the
+        // only truth and wipe out everything actually on disk. Fail loudly instead — the
+        // request handlers' top-level try/catch turns this into a 500 rather than data loss.
+        throw new Error(`${filePath} contains invalid JSON and could not be read: ${err.message}`);
     }
 }
 
