@@ -63,13 +63,18 @@ main {
 
 .card-top {
 	display: flex;
-	gap: 18px;
+	gap: 16px;
 	align-items: flex-start;
+}
+
+.game-image-col {
+	flex: 3;
+	min-width: 0;
 }
 
 .game-image {
 	position: relative;
-	flex: 3;
+	width: 100%;
 	height: 200px;
 	border-radius: 14px;
 	overflow: hidden;
@@ -98,59 +103,85 @@ main {
 	border-radius: 6px;
 }
 
+.card-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	margin-top: 10px;
+}
+
+.card-tags .badge {
+	border-radius: 7px;
+	font-size: 0.7rem;
+	padding: 3px 8px;
+}
+
 .game-info {
 	flex: 2;
 	min-width: 0;
-	height: 200px;
-	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
-}
-
-.game-title-row {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
 	gap: 8px;
 }
 
-.game-title-row h3 {
-	margin: 0;
-	font-size: 17px;
-	font-weight: 800;
-	color: #14161b;
-	letter-spacing: -0.01em;
-	line-height: 1.25;
-	cursor: pointer;
-}
-
-.favourite-btn {
-	flex-shrink: 0;
-	width: 30px;
-	height: 30px;
-	padding: 0;
-	border: none;
-	border-radius: 999px;
-	background: #f5f6f8;
-	box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+.name-row {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 16px;
-	line-height: 1;
+	background: #f5f6f8;
+	border-radius: 10px;
+	padding: 10px;
 	cursor: pointer;
+}
+
+.name-row h3 {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 800;
+	color: #14161b;
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	text-align: center;
+}
+
+.tile-row {
+	display: flex;
+	gap: 8px;
+}
+
+.value-tile {
+	flex: 1;
+	min-width: 0;
+	text-align: center;
+	border-radius: 10px;
+	padding: 12px 4px;
+	font-size: 15px;
+	font-weight: 800;
+	line-height: 1;
+	color: white;
+}
+
+.fav-tile {
+	flex: 1;
+	min-width: 0;
+	text-align: center;
+	border: none;
+	border-radius: 10px;
+	padding: 12px 4px;
+	background: #f5f6f8;
+	cursor: pointer;
+	font-size: 17px;
+	font-weight: 800;
+	line-height: 1;
 	color: #9aa0a8;
 }
 
-.favourite-btn.active {
-	color: #f5a623;
+.fav-tile:hover {
+	background: #eef0f3;
 }
 
-.stat-row {
-	display: flex;
-	gap: 6px;
-	align-items: stretch;
+.fav-tile.active {
+	color: #f5a623;
 }
 
 .stat-tile {
@@ -191,15 +222,15 @@ main {
 }
 
 .log-play-btn {
-	flex-shrink: 0;
-	width: 36px;
+	flex: 1;
+	min-width: 0;
 	padding: 0;
 	border: none;
 	border-radius: 10px;
 	background: #1d78d6;
 	color: white;
 	font-weight: 800;
-	font-size: 1.1rem;
+	font-size: 1.2rem;
 	line-height: 1;
 	cursor: pointer;
 	box-shadow: 0 2px 6px rgba(29,120,214,0.35);
@@ -210,16 +241,6 @@ main {
 
 .log-play-btn:hover {
 	background: #175fac;
-}
-
-.card-tags {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 5px;
-	margin-top: 12px;
-	padding-top: 12px;
-	border-top: 1px solid #eef1f4;
 }
 
 
@@ -497,18 +518,6 @@ button.secondary {
 
 
 /* ---------- Card / detail badges ---------- */
-.card-badges {
-	display: flex;
-	gap: 5px;
-	flex-wrap: wrap;
-	margin-top: 6px;
-}
-
-.card-badges .badge {
-	font-size: 0.75rem;
-	padding: 3px 9px;
-}
-
 .detail-badges {
 	display: flex;
 	gap: 8px;
@@ -964,15 +973,16 @@ button.secondary {
 
 	/* The 3:2 grow ratio that splits the row horizontally on desktop would
 	   otherwise carry over and stretch these vertically once the axis flips. */
-	.game-image {
+	.game-image-col {
 		flex: none;
-		width: 100%;
+	}
+
+	.game-image {
 		height: 220px;
 	}
 
 	.game-info {
 		flex: none;
-		height: auto;
 	}
 
 	.nav-bar {
