@@ -61,25 +61,139 @@ main {
 	box-shadow: 0 4px 16px rgba(15,23,42,0.09);
 }
 
-.card-top {
+.card-header-row {
 	display: flex;
-	gap: 16px;
-	align-items: flex-start;
+	gap: 8px;
+	margin-bottom: 8px;
 }
 
-.game-image-col {
-	flex: 3;
+.name-tile {
+	flex: 1;
 	min-width: 0;
+	height: 72px;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	background: #f5f6f8;
+	border-radius: 12px;
+	padding: 0 14px;
+	cursor: pointer;
+}
+
+.name-tile h3 {
+	margin: 0;
+	font-size: 17px;
+	font-weight: 800;
+	color: #14161b;
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.tile-row {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.sq-tile {
+	/* Every tile in the header row and the tile row is sized off the same
+	   formula (row of 6, 5 gaps) so header tiles line up with the row below. */
+	flex: 0 0 calc((100% - 40px) / 6);
+	min-width: 0;
+	height: 72px;
+	box-sizing: border-box;
+	border: none;
+	border-radius: 12px;
+	background: #f5f6f8;
+	color: white;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 0 2px;
+	cursor: default;
+}
+
+.sq-value {
+	max-width: 100%;
+	font-size: 15px;
+	font-weight: 800;
+	line-height: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sq-value-lg {
+	font-size: 22px;
+}
+
+.sq-caption {
+	margin-top: 4px;
+	font-size: 8px;
+	font-weight: 700;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: rgba(255,255,255,0.8);
+}
+
+.sq-neutral {
+	background: #f5f6f8;
+	color: #334155;
+}
+
+.sq-neutral .sq-caption {
+	color: #8b93a1;
+}
+
+.sq-active {
+	background: #eaf3ff;
+	color: #1d78d6;
+}
+
+.sq-active .sq-caption {
+	color: #5b8fc9;
+}
+
+.fav-tile {
+	cursor: pointer;
+	font-size: 24px;
+	color: #9aa0a8;
+}
+
+.fav-tile:hover {
+	background: #eef0f3;
+}
+
+.fav-tile.active {
+	color: #f5a623;
+}
+
+.add-tile {
+	cursor: pointer;
+	background: #1d78d6;
+	color: white;
+	font-size: 22px;
+	font-weight: 800;
+	box-shadow: 0 2px 6px rgba(29,120,214,0.35);
+}
+
+.add-tile:hover {
+	background: #175fac;
 }
 
 .game-image {
 	position: relative;
 	width: 100%;
-	height: 200px;
-	border-radius: 14px;
+	height: 220px;
+	border-radius: 20px;
 	overflow: hidden;
 	cursor: pointer;
 	background: #eef0f3;
+	margin-bottom: 10px;
 }
 
 .game-image img {
@@ -107,159 +221,12 @@ main {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 5px;
-	margin-top: 10px;
 }
 
 .card-tags .badge {
 	border-radius: 7px;
 	font-size: 0.7rem;
 	padding: 3px 8px;
-}
-
-.game-info {
-	flex: 2;
-	min-width: 0;
-	max-width: 260px;
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.name-row {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: #f5f6f8;
-	border-radius: 10px;
-	padding: 10px;
-	cursor: pointer;
-}
-
-.name-row h3 {
-	margin: 0;
-	font-size: 16px;
-	font-weight: 800;
-	color: #14161b;
-	letter-spacing: -0.01em;
-	line-height: 1.2;
-	text-align: center;
-}
-
-.tile-row {
-	display: flex;
-	gap: 8px;
-}
-
-.value-tile {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	text-align: center;
-	border-radius: 10px;
-	padding: 12px 3px;
-	font-size: 13px;
-	font-weight: 800;
-	line-height: 1;
-	color: white;
-}
-
-.value-number {
-	font-size: 13px;
-	font-weight: 800;
-	line-height: 1;
-}
-
-.value-unit {
-	margin-top: 3px;
-	font-size: 8.5px;
-	font-weight: 700;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-	opacity: 0.75;
-}
-
-.fav-tile {
-	flex: 1;
-	min-width: 0;
-	text-align: center;
-	border: none;
-	border-radius: 10px;
-	padding: 12px 4px;
-	background: #f5f6f8;
-	cursor: pointer;
-	font-size: 17px;
-	font-weight: 800;
-	line-height: 1;
-	color: #9aa0a8;
-}
-
-.fav-tile:hover {
-	background: #eef0f3;
-}
-
-.fav-tile.active {
-	color: #f5a623;
-}
-
-.stat-tile {
-	flex: 1;
-	min-width: 0;
-	text-align: center;
-	border-radius: 10px;
-	padding: 8px 2px;
-	background: #f5f6f8;
-}
-
-.stat-tile.stat-tile-active {
-	background: #eaf3ff;
-}
-
-.stat-number {
-	font-size: 18px;
-	font-weight: 800;
-	line-height: 1;
-	color: #334155;
-}
-
-.stat-tile-active .stat-number {
-	color: #1d78d6;
-}
-
-.stat-label {
-	margin-top: 3px;
-	font-size: 8.5px;
-	font-weight: 700;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-	color: #8b93a1;
-}
-
-.stat-tile-active .stat-label {
-	color: #5b8fc9;
-}
-
-.log-play-btn {
-	flex: 1;
-	min-width: 0;
-	padding: 0;
-	border: none;
-	border-radius: 10px;
-	background: #1d78d6;
-	color: white;
-	font-weight: 800;
-	font-size: 1.2rem;
-	line-height: 1;
-	cursor: pointer;
-	box-shadow: 0 2px 6px rgba(29,120,214,0.35);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.log-play-btn:hover {
-	background: #175fac;
 }
 
 
@@ -981,29 +948,6 @@ button.secondary {
 	   instead of fitting the screen — one full-width column avoids that. */
 	#games {
 		grid-template-columns: 1fr;
-	}
-
-	/* Side-by-side image + info squeezes the text column down to a sliver at
-	   phone widths; stacking the image above the info gives the text its own
-	   full-width row instead. */
-	.card-top {
-		flex-direction: column;
-	}
-
-	/* The 3:2 grow ratio that splits the row horizontally on desktop would
-	   otherwise carry over and stretch these vertically once the axis flips. */
-	.game-image-col {
-		flex: none;
-	}
-
-	.game-image {
-		height: 220px;
-	}
-
-	.game-info {
-		flex: none;
-		width: 100%;
-		align-self: center;
 	}
 
 	.nav-bar {

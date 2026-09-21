@@ -52,8 +52,8 @@ function registerServiceWorker() {
 }
 
 function typeLabel(type) {
-    if (type === "coop") return "Co-op";
-    if (type === "versus") return "Versus";
+    if (type === "coop") return "Co";
+    if (type === "versus") return "Vs";
     return "";
 }
 
@@ -230,64 +230,51 @@ function renderGames() {
         const thisMonthCount = countThisMonth(allPlays, game.id);
 
         div.innerHTML = `
-            <div class="card-top">
-                <div class="game-image-col">
-                    <div class="game-image" onclick="openGame('${game.id}')">
-                        <img
-                            src="${escapeHTML(game.image || 'images/default-game.jpg')}"
-                            alt="${escapeHTML(game.name)} box art"
-                            onerror="handleImageError(this, '${game.id}')"
-                        >
-                        ${game.archived ? `<span class="archived-tag">Archived</span>` : ""}
-                    </div>
-
-                    <div class="card-tags">
-                        ${(game.tags || [])
-                            .slice()
-                            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-                            .map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`)
-                            .join("")}
-                    </div>
+            <div class="card-header-row">
+                <div class="name-tile" onclick="openGame('${game.id}')">
+                    <h3>${escapeHTML(game.name)}</h3>
                 </div>
+                ${game.rating ? `<div class="sq-tile badge-rating-${escapeHTML(game.rating)}"><span class="sq-value sq-value-lg">${escapeHTML(game.rating)}</span></div>` : ""}
+                <button
+                    class="sq-tile fav-tile${game.favourite ? " active" : ""}"
+                    onclick="toggleFavourite('${game.id}')"
+                    aria-label="${game.favourite ? 'Remove from favourites' : 'Add to favourites'}"
+                >${game.favourite ? "★" : "☆"}</button>
+            </div>
 
-                <div class="game-info">
-                    <div class="name-row" onclick="openGame('${game.id}')">
-                        <h3>${escapeHTML(game.name)}</h3>
-                    </div>
-
-                    <div class="tile-row">
-						${game.type ? `<span class="value-tile badge-type-${escapeHTML(game.type)}">${escapeHTML(typeLabel(game.type))}</span>` : ""}
-						${game.length ? `<div class="value-tile badge-length-${escapeHTML(game.length)}"><div class="value-number">${escapeHTML(game.length)}</div><div class="value-unit">min</div></div>` : ""}
-                    </div>
-
-                    <div class="tile-row">
-                        ${game.rating ? `<span class="value-tile badge-rating-${escapeHTML(game.rating)}">${escapeHTML(game.rating)}</span>` : ""}
-                        <button
-                            class="fav-tile${game.favourite ? " active" : ""}"
-                            onclick="toggleFavourite('${game.id}')"
-                            aria-label="${game.favourite ? 'Remove from favourites' : 'Add to favourites'}"
-                        >${game.favourite ? "★" : "☆"}</button>
-                    </div>
-
-                    <div class="tile-row">
-                        <div class="stat-tile">
-                            <div class="stat-number">${countLastMonth(allPlays, game.id)}</div>
-                            <div class="stat-label">Last mo.</div>
-                        </div>
-                        <div class="stat-tile${thisMonthCount > 0 ? " stat-tile-active" : ""}">
-                            <div class="stat-number">${thisMonthCount}</div>
-                            <div class="stat-label">This mo.</div>
-                        </div>
-                    </div>
-
-                    <div class="tile-row">
-                        <div class="stat-tile">
-                            <div class="stat-number">${countSessions(allPlays, game.id)}</div>
-                            <div class="stat-label">Total</div>
-                        </div>
-                        <button class="log-play-btn" onclick="recordPlay('${game.id}')" aria-label="Log a play">+</button>
-                    </div>
+            <div class="tile-row">
+				${game.type ? `<div class="sq-tile badge-type-${escapeHTML(game.type)}"><span class="sq-value">${escapeHTML(typeLabel(game.type))}</span></div>` : ""}
+				${game.length ? `<div class="sq-tile badge-length-${escapeHTML(game.length)}"><div class="sq-value">${escapeHTML(game.length)}</div><div class="sq-caption">Min</div></div>` : ""}
+                <div class="sq-tile sq-neutral">
+                    <div class="sq-value">${countLastMonth(allPlays, game.id)}</div>
+                    <div class="sq-caption">Last</div>
                 </div>
+                <div class="sq-tile${thisMonthCount > 0 ? " sq-active" : " sq-neutral"}">
+                    <div class="sq-value">${thisMonthCount}</div>
+                    <div class="sq-caption">This</div>
+                </div>
+                <div class="sq-tile sq-neutral">
+                    <div class="sq-value">${countSessions(allPlays, game.id)}</div>
+                    <div class="sq-caption">Total</div>
+                </div>
+                <button class="sq-tile add-tile" onclick="recordPlay('${game.id}')" aria-label="Log a play">+</button>
+            </div>
+
+            <div class="game-image" onclick="openGame('${game.id}')">
+                <img
+                    src="${escapeHTML(game.image || 'images/default-game.jpg')}"
+                    alt="${escapeHTML(game.name)} box art"
+                    onerror="handleImageError(this, '${game.id}')"
+                >
+                ${game.archived ? `<span class="archived-tag">Archived</span>` : ""}
+            </div>
+
+            <div class="card-tags">
+                ${(game.tags || [])
+                    .slice()
+                    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+                    .map(tag => `<span class="badge badge-tag">${escapeHTML(tag)}</span>`)
+                    .join("")}
             </div>
         `;
 
